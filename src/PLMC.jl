@@ -116,7 +116,7 @@ function plmclus(X::AbstractMatrix{T}, params::LMCLUS.Parameters;
     # Perform piecewise linear clustering
     plmclust, plmdlvals = if clustering == :mdl
         srand(params.random_seed)
-        plmclus2(X, ms, flt, params.mdl_algo, params.mdl_model_precision, params.mdl_data_precision, debug=(loglev > 0))
+        plmclus(X, ms, flt, params.mdl_algo, params.mdl_model_precision, params.mdl_data_precision, debug=(loglev > 0))
     else
         # create similarity matrix
         A = if similarity == :adjacency
@@ -161,7 +161,7 @@ function plmclus(X::AbstractMatrix{T}, params::LMCLUS.Parameters;
         for c in conf
             R = PLMCResult(ms, c, ccplx, ϵ′)
             COMP = if modeltype == :NONE
-                plmdl2(R, X, params.mdl_algo, params.mdl_model_precision, params.mdl_data_precision, ɛ=ɛ, debug=(loglev > 1)) |> log2
+                plmdl3(R, X, params.mdl_algo, params.mdl_model_precision, params.mdl_data_precision, ɛ=ɛ, debug=(loglev > 1)) |> log2
             else
                 plmclust = model(clust, X, modeltype, q, R.clusters)
                 if perf == :Kregret
@@ -188,7 +188,7 @@ function plmclus(X::AbstractMatrix{T}, params::LMCLUS.Parameters;
             # K size + sum(Γ_i size)
             Lm = length(R.clusters)*log2(n) + sum( l*log2(n) for l in map(length, R.clusters) )
             loglev > 0 && println("$(R.clusters) => $COMP + Lm ($Lm)\n")
-            push!(mdls, COMP+Lm=>R)
+            push!(mdls, (modeltype == :NONE ? COMP : COMP+Lm)=>R)
         end
 
         # find optimal value

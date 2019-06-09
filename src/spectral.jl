@@ -79,14 +79,13 @@ Parameter `method` specifies clustering algorithm:
 - `:njw` for "On Spectral Clustering: Analysis and an algorithm" by Nj, Jordan, Weiss (2002) (default)
 - `:sm` for "Normalized Cuts and Image Segmentation" by Shi and Malik (2000)
 """
-function spectralclust(A::AbstractSparseMatrix, k::Int; method=:njw, display=:none, init=:kmpp)
+function spectralclust(A::AbstractSparseMatrix, k::Int; method=:njw, init=:kmpp)
     @assert size(A,1) == size(A,2) "Matrix should be square"
     @assert size(A,1) > k "Number of clusters cannot be more then observations"
     @assert k > 1 "Number of clusters should be more then one"
 
     if method == :sm
         L = laplacian(A)
-        # (display == :iter) && println("Laplacian:\n", collect(L))
         D = sparse(Diagonal(diag(L)))
         λ, ϕ = eigs(L, D, which=:SR, nev=min(2*k, size(A,1)-1))
         idxs = find(real(λ).> eps())
@@ -94,14 +93,13 @@ function spectralclust(A::AbstractSparseMatrix, k::Int; method=:njw, display=:no
         λ = λ[idxs]
     elseif method == :njw
         L = normalized_laplacian(A)
-        # (display == :iter) && println("Laplacian:\n", collect(L))
         kk = min(k+1, size(A,1)-1)
         λ, ϕ = eigs(L, which=:SR, nev=kk)
         k = min(length(λ), kk-1)
         ϕ = ϕ[:,1:k]
         λ = λ[1:k]
     else
-        error("Invalid method: $method")
+        throw(ArgumentError("Invalid method `$method`"))
     end
 
     # normalize
