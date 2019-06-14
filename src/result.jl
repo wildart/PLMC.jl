@@ -29,7 +29,7 @@ function LMCLUS.manifolds(cls::Clustering.KmeansResult, data::AbstractMatrix; bo
     M⁺ = LMCLUS.Manifold[]
     A = assignments(cls)
     for i in 1:nclusters(cls)
-        m = LMCLUS.Manifold(1, zeros(1), zeros(1, 0), find(A.==i))
+        m = LMCLUS.Manifold(1, zeros(1), zeros(1, 0), findall(A.==i))
         LMCLUS.adjustbasis!(m, data)
         if bounds
             m.θ = maximum(LMCLUS.distance_to_manifold(data, m))

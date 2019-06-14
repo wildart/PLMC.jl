@@ -84,7 +84,7 @@ function plmdl(ms::Vector{LMCLUS.Manifold}, cplx::ComputationalHomology.Abstract
     debug && println("L(Γ | Iₐ,Iᵢ,Π): $L_Γ_Iₐ_Iᵢ_Π")
 
     R = symdiff(K, Iᵢ ∪ Iₐ)
-    debug && println("K\(Iᵢ ∪ Iₐ): $R")
+    debug && println("K\\(Iᵢ ∪ Iₐ): $R")
     Lrest = 0
     for i in R
         Lrest += LMCLUS.MDL.calculate(MT, ms[i], X, Pm, Pd)
@@ -169,7 +169,7 @@ function plmdl2(ms::Vector{LMCLUS.Manifold}, cplx::ComputationalHomology.Abstrac
                     else # cannot reduce dependencies
                         ij = findfirst(π -> π == [i,j], Π)
                         ki = findfirst(π -> π == [k,i], Π)
-                        warn("Problem: $i-($(cache[Π[ij]]))->$j$(jkmdl>kjmdl?"<":"")-($(min(jkmdl,kjmdl)))-$(jkmdl<kjmdl?">":"")$k-($(cache[Π[ki]]))->$i in Π")
+                        warn("Problem: $i-($(cache[Π[ij]]))->$j$(jkmdl>kjmdl ? "<" : "")-($(min(jkmdl,kjmdl)))-$(jkmdl<kjmdl ? ">" : "")$k-($(cache[Π[ki]]))->$i in Π")
                         # check if i->j<-k->i can be transformed into j<-k->i or k<-i->j
                         i_kj = cache[[i,k]] + cache[Π[ij]]
                         k_ij = cache[[k,j]] + cache[Π[ki]]
@@ -297,7 +297,7 @@ function plmdl3(ms::Vector{LMCLUS.Manifold}, cplx::ComputationalHomology.Abstrac
                     else # cannot reduce dependencies
                         ij = findfirst(π -> π == [i,j], Π)
                         ki = findfirst(π -> π == [k,i], Π)
-                        warn("Problem: $i-($(cache[Π[ij]]))->$j$(jkmdl>kjmdl?"<":"")-($(min(jkmdl,kjmdl)))-$(jkmdl<kjmdl?">":"")$k-($(cache[Π[ki]]))->$i in Π")
+                        warn("Problem: $i-($(cache[Π[ij]]))->$j$(jkmdl>kjmdl ? "<" : "")-($(min(jkmdl,kjmdl)))-$(jkmdl<kjmdl ? ">" : "")$k-($(cache[Π[ki]]))->$i in Π")
                         # check if i->j<-k->i can be transformed into j<-k->i or k<-i->j
                         i_kj = cache[[i,k]] + cache[Π[ij]]
                         k_ij = cache[[k,j]] + cache[Π[ki]]
@@ -363,7 +363,7 @@ function plmdl3(ms::Vector{LMCLUS.Manifold}, cplx::ComputationalHomology.Abstrac
     debug && println("L(Γ | Iₐ,Iᵢ,Π): $L_Γ_Iₐ_Iᵢ_Π")
 
     R = symdiff(K, Iᵢ ∪ Iₐ)
-    debug && println("K\(Iᵢ ∪ Iₐ): $R")
+    debug && println("K\\(Iᵢ ∪ Iₐ): $R")
     Lrest = 0
     for i in R
         Lrest += LMCLUS.MDL.calculate(MT, ms[i], X, Pm, Pd)

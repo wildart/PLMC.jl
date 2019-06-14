@@ -1,0 +1,32 @@
+name = "PLMC"
+version="0.1.0"
+uuid = "06036fec-f111-485c-a690-0ab832ad5eb6"
+
+[deps]
+Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
+ComputationalHomology = "9393a4d0-be1e-45b0-9991-b60434c721e6"
+Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+MultivariateStats = "6f286f6a-111f-5878-ab1e-185364afe411"
+LMCLUS = "173e3a66-dd8a-5f2e-8a96-8b7ddc4d534d"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+KernelDensity = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
+LinearManifoldModels = "cd0d0d74-87e8-41df-8c2f-60e3fce673dd"
+
+[compat]
+LMCLUS = "≥ 0.4.1"
+MultivariateStats = "≥ 0.6.0"
+julia = "≥ 1.1.0"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

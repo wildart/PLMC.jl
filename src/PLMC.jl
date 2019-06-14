@@ -7,6 +7,8 @@ import MultivariateStats: MultivariateStats, fit, outdim, indim, projection
 import LMCLUS: LMCLUS, outdim, indim, projection, manifolds, points
 import Clustering: Clustering, assignments, counts, nclusters
 import ComputationalHomology
+import Random
+import Statistics: mean, cov
 
 export ptm_dist, partition, lmcc, plmclus
 
@@ -25,10 +27,9 @@ function partition(X::AbstractMatrix, params::LMCLUS.Parameters;
     loglev = Clustering.display_level(display)
     # Generate clusters
     clust = if method == :lmclus
-        LMCLUS.loglevel!(loglev) # set logging level
         LMCLUS.lmclus(X, params)
     elseif method == :kmeans
-        srand(params.random_seed)
+        Random.seed!(params.random_seed)
         res = Clustering.kmeans(X, params.number_of_clusters, display=display)
         ms = manifolds(res, X)
         LMCLUS.LMCLUSResult(ms, LMCLUS.Separation[])
@@ -87,9 +88,12 @@ function plmclus(X::AbstractMatrix{T}, params::LMCLUS.Parameters;
                  modeltype=:NONE, q=1, perf=:regret) where T<:AbstractFloat
     # set log level
     loglev = Clustering.display_level(display)
+
     # Partition dataset on LM clusters
     clust = partition(X, params; method=partitioning, refine=refine, refinetol=refinetol, dropnoise=dropnoise, display=display)
-    ms = manifolds(clust)
+
+    # create cluster complex: mahalonobis clustering & its filtration
+    cplx, w, mclust = clustercomplex(Xn, clust)
 
     # Construct filtration from LM clusters
     D = hcat(map(m->first(ptm_dist(X, m)), ms)...)
@@ -99,7 +103,7 @@ function plmclus(X::AbstractMatrix{T}, params::LMCLUS.Parameters;
 
     # Find in maximal (finite) filtration value of zero persistent homology group (corresponds to a connected component)
     itr = ComputationalHomology.intervals(flt)[0]
-    ϵ′ = mapreduce(last, (v0,v)-> max(v0, isinf(v)? -v : v), itr)
+    ϵ′ = mapreduce(last, (v0,v)-> max(v0, isinf(v) ? -v : v), itr)
 
     # Find complex to corresponding filtration value
     loglev > 0 && println("Find largest connected component: ")
