@@ -19,6 +19,7 @@ Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 KernelDensity = "5ab0869b-81aa-558d-bb23-cbf5423bbe9b"
 LinearManifoldModels = "cd0d0d74-87e8-41df-8c2f-60e3fce673dd"
+ClusterComplex = "a4b5195f-7e50-4300-9f38-3baf1bf3ac9e"
 
 [compat]
 LMCLUS = "≥ 0.4.1"
