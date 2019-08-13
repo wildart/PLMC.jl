@@ -1,6 +1,3 @@
-using LinearAlgebra, SparseArrays, Arpack
-import ComputationalHomology: AbstractComplex, Filtration
-
 """Laplacian of an adjacency matrix `A`"""
 laplacian(A::AbstractSparseMatrix) = spdiagm(0=>vec(sum(A, dims=2))) - A
 
@@ -12,8 +9,8 @@ end
 
 """Spectral clustering results
 """
-struct SpectralResult <: Clustering.ClusteringResult
-    res::Clustering.KmeansResult
+struct SpectralResult <: ClusteringResult
+    res::KmeansResult
     λ::AbstractVector{<:Real}
 end
 assignments(clust::SpectralResult) = assignments(clust.res)
@@ -37,7 +34,7 @@ function spectralclust(A::AbstractSparseMatrix, k::Int; method=:njw, init=:kmpp)
         L = laplacian(A)
         D = Diagonal(L)
         λ, ϕ = eigs(L, D, which=:SR, nev=min(2*k, size(A,1)-1))
-        idxs = find(real(λ).> eps())
+        idxs = findall(real(λ).> eps())
         ϕ = ϕ[:,idxs]
         λ = λ[idxs]
     elseif method == :njw
@@ -55,7 +52,7 @@ function spectralclust(A::AbstractSparseMatrix, k::Int; method=:njw, init=:kmpp)
     ϕ = real(ϕ)
     ϕ ./= mapslices(norm,ϕ,dims=2)
 
-    KM = Clustering.kmeans(ϕ', k, init=init)
+    KM = kmeans(ϕ', k, init=init)
     return SpectralResult(KM, real(λ))
 end
 spectralclust(cplx::AbstractComplex, k::Int; kwargs...) = spectralclust(adjacency_matrix(cplx, Float64), k; kwargs...)
