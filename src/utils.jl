@@ -16,3 +16,12 @@ function modelclass(mcs::MahalonobisClusteringResult,
         MvNormal(mcl[clidxs][]) :
         mixture(mcl[clidxs]) for clidxs in clsidxs]
 end
+
+function show_vector(io, v::AbstractVector)
+    print(io, "[")
+    for (i, elt) in enumerate(v)
+        i > 1 && print(io, ", ")
+        print(io, elt)
+    end
+    print(io, "]")
+end
