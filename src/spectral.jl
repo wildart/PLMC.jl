@@ -1,3 +1,5 @@
+using SparseArrays, Arpack
+
 """Laplacian of an adjacency matrix `A`"""
 laplacian(A::AbstractSparseMatrix) = spdiagm(0=>vec(sum(A, dims=2))) - A
 

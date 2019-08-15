@@ -28,8 +28,8 @@ function refinedmdl(LC::Vector{<:MultivariateDistribution},
     return LKH + Rₘₐₓ, LKH, Rₘₐₓ
 end
 
-refinedmdl(mrg::Vector{Vector{Int}}, mcr::ClusterComplex.MahalonobisClusteringResult, X::AbstractMatrix) =
-    refinedmdl(modelclass(mcr, mrg), map(MvNormal, clusters(mcr)), X)
+refinedmdl(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix) =
+    refinedmdl(modelclass(mcr, mrg), mcr.models, X)
 
 """
     mdldiff(P′::AbstractMixtureModel, MC::Vector{MultivariateDistribution}, X::AbstractMatrix) -> Float64
@@ -41,24 +41,16 @@ function mdldiff(P′::AbstractMixtureModel,
                  X::AbstractMatrix)
     Pᵢ = components(P′)[1]
     Pⱼ = components(P′)[2]
-    # map(p->-logpdf(p, XX), components(P′))
-    # map(extrema, map(p->logpdf(p, XX), components(P′)))
-    # mapslices(x->max(-logpdf(Pᵢ,x), -logpdf(Pⱼ,x)), XX, dims=1)
-    # mapslices(x->logpdf(Pᵢ,x) + logpdf(Pⱼ,x) + min(-logpdf(Pᵢ,x), -logpdf(Pⱼ,x)), XX, dims=1) |> sum
-    # mapslices(x->logpdf(Pᵢ,x) + logpdf(Pⱼ,x) + min(-logpdf(Pᵢ,x), -logpdf(Pⱼ,x)), XX, dims=1) |> extrema
-    # mapslices(x->logpdf(Pᵢ,x) + logpdf(Pⱼ,x) + min(-logpdf(Pᵢ,x), -logpdf(Pⱼ,x)), Xn, dims=1) |> sum
     LL = mapslices(x->max(-logpdf(Pᵢ,x), -logpdf(Pⱼ,x)), X, dims=1) |> sum
     R′Rᵢ = mapslices(x->logpdf(P′,x)-logpdf(Pᵢ,x), X, dims=1) |> maximum
-    # R′ = PLMC.regretmax(P′, MCL, X)
-    # Rᵢ = PLMC.regretmax(Pᵢ, MCL, X)
     Rⱼ = PLMC.regretmax(Pⱼ, MCL, X)
     # println("LL[$LL] + max(R′-Rᵢ)[$(R′Rᵢ)] + Rⱼ[$(Rⱼ)] = $(LL + R′Rᵢ + Rⱼ)")
     return LL + R′Rᵢ + Rⱼ
 end
 
-function mdldiff(mrg::Vector{Vector{Int}}, mcr::ClusterComplex.MahalonobisClusteringResult, X::AbstractMatrix)
+function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
     # print("$mrg => ")
     mrgidxs = vcat(mrg...)
-    idxs = mapreduce(c->c.idx, vcat, clusters(mcr)[mrgidxs])
-    mdldiff(modelclass(mcr, [mrgidxs])[], map(MvNormal, clusters(mcr)), view(X ,:,idxs))
+    idxs = findall(i-> i ∈ mrgidxs, assignments(mcr))
+    mdldiff(modelclass(mcr, [mrgidxs])[], mcr.models, view(X ,:,idxs))
 end

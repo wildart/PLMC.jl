@@ -1,27 +1,18 @@
-"""PLMC partitioning
-"""
-struct PLMCResultClusteringResult <: ClusteringResult
-    manifolds::Vector{MahalonobisCluster}
-    clusters::Vector{Vector{Int}}
-    complex::SimplicialComplex
-    ϵ::Number
-end
-function Base.show(io::IO, R::PLMCResultClusteringResult)
-    print(io, "PL Manifold Clustering (clusters = $(nclusters(R)), ϵ = $(R.ϵ))")
+""" Convert the model-based clustering `mcr` into a mixture model. """
+function MixtureModel(mcr::ModelClusteringResult,
+                      p::Vector{Int} = collect(1:nclusters(mcr)))
+    cnts = counts(mcr)
+    return MixtureModel(mcr.models[p], cnts[p]./sum(cnts[p]))
 end
 
-# Clustering.ClusteringResult interface
-nclusters(R::PLMCResultClusteringResult) = length(R.clusters)
-counts(R::PLMCResultClusteringResult) = [ sum( length(R.manifolds[c].idx) for c in cls ) for cls in R.clusters ]
-function assignments(R::PLMCResultClusteringResult)
-    tot = sum(map(c->length(c.idx), R.manifolds))
-    asgn = zeros(Int, tot)
-    for (i, cls) in enumerate(R.clusters)
-        for c in cls
-            asgn[R.manifolds[c].idx] .= i
-        end
-    end
-    return asgn
+""" Create a model class from the model-based clustering `mcr`. """
+function modelclass(mcr::ModelClusteringResult,
+                    clsidxs::Array{Array{Int64,1},1})
+    return  [
+        length(clidxs) == 1 ?
+        mcr.models[clidxs][] :
+        MixtureModel(mcr, clidxs) for clidxs in clsidxs
+    ]
 end
 
 struct Agglomeration
@@ -31,19 +22,51 @@ struct Agglomeration
 end
 Base.show(io::IO, A::Agglomeration) = print(io, "Agglomeration of $(length(A.clusters)) mergers")
 
-@recipe function f(plmc::T) where {T<:PLMCResultClusteringResult}
-    χ = isinf(plmc.ϵ) ? 2.0 : plmc.ϵ
-    for (i,idxs) in enumerate(plmc.clusters)
-        for c in idxs
-            @series begin
-                label --> "MC$i"
-                linecolor --> i
-                plmc.manifolds[c], χ
-            end
+
+"""PLMC partitioning
+"""
+struct PLMClusteringResult <: ClusteringResult
+    models::ModelClusteringResult
+    clusters::Vector{Vector{Int}}
+    complex::SimplicialComplex
+    ϵ::Number
+end
+Base.show(io::IO, R::PLMClusteringResult) =
+    print(io, "PL Manifold Clustering (clusters = $(nclusters(R)), ϵ = $(R.ϵ))")
+
+# Clustering.ClusteringResult interface
+nclusters(R::PLMClusteringResult) = length(R.clusters)
+function counts(R::PLMClusteringResult)
+    massign = assignments(R.models)
+    return [ sum( count(massign .== ci) for ci in cls ) for cls in R.clusters ]
+end
+function assignments(R::PLMClusteringResult)
+    massign = assignments(R.models)
+    assgn = similar(massign)
+    for (i, cls) in enumerate(R.clusters)
+        for ci in cls
+            assgn[massign .== ci] .= i
         end
     end
-    if length(size(plmc.complex)) > 0
-        D = hcat(map(m->m.mu, plmc.manifolds)...)'
-        plmc.complex, D
+    return assgn
+end
+models(R::PLMClusteringResult) = models(R.models)
+
+@recipe function f(R::T) where {T<:PLMClusteringResult}
+    χ = isinf(R.ϵ) ? 2.0 : R.ϵ
+    for (i,idxs) in enumerate(R.clusters)
+        addlabel = true
+        for c in idxs
+            @series begin
+                label --> (addlabel ? "MC$i" : "")
+                linecolor --> i
+                models(R)[c], χ
+            end
+            addlabel = false
+        end
+    end
+    if length(size(R.complex)) > 0
+        D = hcat(map(mean, models(R))...)'
+        R.complex, D
     end
 end

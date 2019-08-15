@@ -2,32 +2,40 @@ module PLMC
 
 using StatsBase
 using Distributions
-using LinearAlgebra, SparseArrays, Arpack
 using Clustering
 using ClusterComplex
 using Combinatorics
 using Random
 using ComputationalHomology
+using RecipesBase
 
-import Distributions: MvNormal
+import Distributions: MvNormal, MixtureModel
 import Clustering: assignments, counts, nclusters
+import ClusterComplex: models
 
-export MvNormal, PLMCResultClusteringResult,
-       assignments, counts, nclusters,
+export MvNormal, MixtureModel,
+       PLMClusteringResult, modelclass,
        refinedmdl, ibdiff, mdldiff,
        agglomerate, testmerges, plmc
 
-include("utils.jl")
 include("types.jl")
 include("mdl.jl")
 include("ib.jl")
 include("spectral.jl")
-# include("model.jl")
 
 # Agglomerative Clustering
 
+function show_vector(io, v::AbstractVector)
+    print(io, "[")
+    for (i, elt) in enumerate(v)
+        i > 1 && print(io, ", ")
+        print(io, elt)
+    end
+    print(io, "]")
+end
+
 function testmerges(mtree::Vector{Vector{Vector{Int}}},
-                    mcr::MahalonobisClusteringResult,
+                    mcr::ModelClusteringResult,
                     X::AbstractMatrix)
     c = length(mtree)
     MDL = fill(0.0, c)
@@ -103,7 +111,7 @@ end
 Construct agglomerative pairwise clustering from the filtration `flt`.
 """
 function agglomerate(measure::Function,
-                     mcr::MahalonobisClusteringResult,
+                     mcr::ModelClusteringResult,
                      X::AbstractMatrix)
     mtree   = Vector{Vector{Int}}[]
     mergers = Vector{Vector{Int}}[]
@@ -131,7 +139,7 @@ function agglomerate(measure::Function,
 end
 
 function plmc(agg::Agglomeration,
-              mcr::MahalonobisClusteringResult,
+              mcr::ModelClusteringResult,
               X::AbstractMatrix; filtration=nothing)
     MDL, _ = testmerges(agg.clusters, mcr, X)
     mdlval, mdlidx = findmin(MDL)
@@ -141,7 +149,7 @@ function plmc(agg::Agglomeration,
         ϵ = agg.marks[mdlidx]
         scplx = complex(filtration, ϵ)
     end
-    return PLMCResultClusteringResult(clusters(mcr), agg.clusters[mdlidx], scplx, ϵ)
+    return PLMClusteringResult(mcr, agg.clusters[mdlidx], scplx, ϵ)
 end
 
 end
