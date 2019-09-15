@@ -16,6 +16,7 @@ import ClusterComplex: models
 export MvNormal, MixtureModel,
        PLMClusteringResult, modelclass,
        refinedmdl, ibdiff, mdldiff,
+       Agglomeration,
        agglomerate, testmerges, plmc
 
 include("types.jl")
@@ -54,11 +55,30 @@ function testmerges(mtree::Vector{Vector{Vector{Int}}},
     return MDL, LL, Rₘₐₓ
 end
 
-## Construct merging tree from the filtration complex
+# Find clustering with minimal MDL value
 """
-    agglomerate(flt::Filtration) -> (Vector{Vector{Vector{Int}}}, Vector{Vector{Vector{Int}}})
+    plmc(agg::Agglomeration, mcr::ModelClusteringResult, X::AbstractMatrix) -> PLMClusteringResult
 
-Construct agglomerative pairwise clustering from the filtration `flt`.
+Construct a piecewise clustering from the agglomerative merge tree `agg` by finding a corrspondent minimum MDL value.
+"""
+function plmc(agg::Agglomeration,
+              mcr::ModelClusteringResult,
+              X::AbstractMatrix; filtration=nothing)
+    MDL, _ = testmerges(agg.clusters, mcr, X)
+    mdlval, mdlidx = findmin(MDL)
+    ϵ = Inf
+    scplx = SimplicialComplex()
+    if filtration !== nothing
+        ϵ = agg.costs[mdlidx]
+        scplx = complex(filtration, ϵ)
+    end
+    return PLMClusteringResult(mcr, agg.clusters[mdlidx], scplx, ϵ)
+end
+
+"""
+    agglomerate(flt::Filtration) -> Agglomeration
+
+Construct agglomerative pairwise merge tree from the filtration `flt`.
 """
 function agglomerate(flt::Filtration; individual=true)
     mtree   = Vector{Vector{Int}}[]
@@ -76,7 +96,7 @@ function agglomerate(flt::Filtration; individual=true)
         merged = false
         for simplex in splxs
             # join simplex points
-            println("$v => $simplex")
+            # println("$v => $simplex")
             pts = values(simplex)
             if length(pts) == 1
                 # println("[] <= $(pts[1])")
@@ -99,57 +119,77 @@ function agglomerate(flt::Filtration; individual=true)
         if merged
             push!(mtree, deepcopy(ST))
             push!(mvals, v)
-            println("$(mtree[end]) => $v")
+            # println("$(mtree[end]) => $v")
         end
     end
     return Agglomeration(mtree, mergers, mvals)
 end
 
 """
-    agglomerate(measure::Function, mcr::MahalonobisClusteringResult, X::AbstractMatrix) -> (Vector{Vector{Vector{Int}}}, Vector{Vector{Vector{Int}}})
+    agglomerate(flt::Filtration, mcr::ModelClusteringResult, X::AbstractMatrix) -> (PLMClusteringResult, Agglomeration)
 
-Construct agglomerative pairwise clustering from the filtration `flt`.
+Return agglomerative piecewise clustering from the filtration `flt` by finding a corrspondent minimum MDL value.
+"""
+function agglomerate(flt::Filtration, mcr::ModelClusteringResult,
+                     X::AbstractMatrix; individual=true)
+    agg = agglomerate(flt, individual=individual)
+    return plmc(agg, mcr, X, filtration=flt), agg
+end
+
+function mergecost(nodes::Vector{Vector{Int}}, measure::Function, mcr::ModelClusteringResult, X::AbstractMatrix, β::Int)
+    # println("nodes: ", length(nodes))
+    ds = [P′=>measure(P′, mcr, X) for P′ in combinations(nodes, 2)]
+    dsi = sortperm(ds, by=last)
+    mi = min(β, length(dsi))
+    return ds[dsi[1:mi]]
+end
+
+"""
+    agglomerate(measure::Function, mcr::ModelClusteringResult, X::AbstractMatrix; β=1) -> Agglomeration
+
+Construct agglomerative pairwise clustering through the beam search using `measure` function. `β` is a length of the beam.
 """
 function agglomerate(measure::Function,
                      mcr::ModelClusteringResult,
-                     X::AbstractMatrix)
-    mtree   = Vector{Vector{Int}}[]
-    mergers = Vector{Vector{Int}}[]
-    mvals   = Float64[]
+                     X::AbstractMatrix; β=1, βsize=β)
     k = nclusters(mcr)
 
-    insert!(mtree, 1, [[i] for i in 1:k])
+    # initialize beam storage
+    beam = Agglomeration[]
+    push!(beam, Agglomeration([[i] for i in 1:k]))
 
-    while length(mtree[end]) > 1
-        ds = [P′=>measure(P′, mcr, X) for P′ in combinations(mtree[end], 2)]
-        dsi = sortperm(ds, by=last)
-        minds = ds[dsi[1]]
-        println("Merged: ", minds)
-        push!(mergers, first(minds))
+    bcount = β
+    cls = last(first(beam))
+    while length(cls) > 1
+        # fill beam structure with possible options
 
-        i, j = findall(a-> a ∈ first(minds), mtree[end])
-        ST = deepcopy(mtree[end])
-        append!(ST[i], ST[j])
-        deleteat!(ST, j)
-        push!(mtree, ST)
-        println(ST)
+        while bcount > 0
+            tmp = Agglomeration[]
+            while length(beam) > 0
+                agg = pop!(beam)
+                mcosts = mergecost(last(agg), measure, mcr, X, β)
+                for mrg in mcosts
+                    # println("Merged: ", mrg)
+                    newagg = deepcopy(agg)
+                    push!(newagg, mrg)
+                    push!(tmp, newagg)
+                end
+            end
+            unique!(a->last(a), tmp)
+            beam = tmp
+            bcount -= 1
+        end
+        bcount = 1
+
+        # prune beam structure
+        idxs = sortperm(map(count, beam))
+        mi = min(β^βsize, length(idxs))
+        beam = beam[idxs[1:mi]]
+        # map(a->a.clusters[end] => count(a), beam)
+        cls = last(first(beam))
     end
-
-    return Agglomeration(mtree, mergers, mvals)
-end
-
-function plmc(agg::Agglomeration,
-              mcr::ModelClusteringResult,
-              X::AbstractMatrix; filtration=nothing)
-    MDL, _ = testmerges(agg.clusters, mcr, X)
-    mdlval, mdlidx = findmin(MDL)
-    ϵ = Inf
-    scplx = SimplicialComplex()
-    if filtration !== nothing
-        ϵ = agg.marks[mdlidx]
-        scplx = complex(filtration, ϵ)
-    end
-    return PLMClusteringResult(mcr, agg.clusters[mdlidx], scplx, ϵ)
+    agg = first(beam)
+    return plmc(agg, mcr, X), agg
 end
 
 end
