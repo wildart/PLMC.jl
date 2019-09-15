@@ -18,9 +18,31 @@ end
 struct Agglomeration
     clusters::Vector{Vector{Vector{Int}}}
     mergers::Vector{Vector{Vector{Int}}}
-    marks::Vector{Float64}
+    costs::Vector{Float64}
 end
-Base.show(io::IO, A::Agglomeration) = print(io, "Agglomeration of $(length(A.clusters)) mergers")
+Agglomeration(clusters::Vector{Vector{Int}}) = Agglomeration([clusters], [Vector{Int}[]], [0.0])
+Base.count(agg::Agglomeration) = sum(agg.costs)
+Base.length(agg::Agglomeration) = length(agg.clusters)
+Base.show(io::IO, agg::Agglomeration) = print(io, "Agglomeration of $(length(agg.clusters)) mergers")
+Base.last(agg::Agglomeration) = last(agg.clusters)
+function Base.push!(agg::Agglomeration, jn::Pair{Vector{Vector{Int}},Float64})
+    # get last merge state
+    laststate = agg.clusters[end]
+    # find indexes of merging clusters
+    idxs = findall(a-> a ∈ first(jn), laststate)
+    newstate = deepcopy(laststate)
+    # merge clusters
+    i = idxs[1]
+    for j in idxs[2:end]
+        append!(newstate[i], newstate[j])
+        deleteat!(newstate, j)
+    end
+    # update agglomeration
+    push!(agg.clusters, newstate)
+    push!(agg.mergers, first(jn))
+    push!(agg.costs,   last(jn))
+    return agg
+end
 
 
 """PLMC partitioning

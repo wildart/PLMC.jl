@@ -7,6 +7,20 @@ using LinearAlgebra
 using Statistics
 using Test
 
+@testset "Agglomeration" begin
+    n = 3
+    cls = [[i] for i in 1:n]
+    agg = Agglomeration(cls)
+    @test count(agg) == 0.0
+    @test length(agg) == 1
+    @test length(agg.clusters) == length(agg.mergers) == length(agg.costs)
+
+    push!(agg, cls[1:2]=>1.0)
+    @test count(agg) == 1.0
+    @test length(agg) == 2
+    @test length(agg.clusters) == length(agg.mergers) == length(agg.costs)
+end
+
 @testset "Model-based Clustering" begin
     d1, l1 = MvNormal([0., 0.], Diagonal([1., 1.])), fill(1,10)
     d2, l2 = MvNormal([5., 5.], Diagonal([0.5, 0.5])), fill(2,10)
