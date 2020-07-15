@@ -9,15 +9,16 @@ using Random
 using ComputationalHomology
 using RecipesBase
 
-import Distributions: MvNormal, MixtureModel
+import Distributions: MixtureModel
 import Clustering: assignments, counts, nclusters
 import ClusterComplex: models
 
-export MvNormal, MixtureModel,
-       PLMClusteringResult, modelclass,
+export PLMClusteringResult, modelclass,
        refinedmdl, ibdiff, mdldiff,
        Agglomeration,
-       agglomerate, testmerges, plmc
+       agglomerate, agglomerateph, testmerges, plmc,
+       #re-export,
+       MvNormal, MixtureModel, MixtureModel
 
 include("types.jl")
 include("mdl.jl")
@@ -90,11 +91,13 @@ function agglomerate(flt::Filtration; individual=true)
         insert!(mtree, 1, [[i] for i in 1:size(complex(flt),0)])
         push!(mvals, zero(eltype(mvals)))
     end
+    cplx = complex(flt)
 
     ST = Vector{Int}[]
-    for (v, splxs) in ComputationalHomology.simplices(flt)
+    for (v, splxs) in flt
         merged = false
-        for simplex in splxs
+        for (d,sid) in splxs
+            simplex = cplx[sid, d]
             # join simplex points
             # println("$v => $simplex")
             pts = values(simplex)
@@ -133,6 +136,60 @@ Return agglomerative piecewise clustering from the filtration `flt` by finding a
 function agglomerate(flt::Filtration, mcr::ModelClusteringResult,
                      X::AbstractMatrix; individual=true)
     agg = agglomerate(flt, individual=individual)
+    return plmc(agg, mcr, X, filtration=flt), agg
+end
+
+function agglomerateph(flt::Filtration; individual=true)
+    mtree   = Vector{Vector{Int}}[]
+    mergers = Vector{Vector{Int}}[]
+    mvals   = valtype(flt)[]
+
+    # use individual clusters as PLM clusters
+    if individual
+        insert!(mtree, 1, [[i] for i in 1:size(complex(flt),0)])
+        push!(mvals, zero(eltype(mvals)))
+    end
+
+    cplx = complex(flt)
+    ph = persistenthomology(PersistentCocycleReduction{Float64}, flt)
+    dgm = diagram(ph)
+    dims = sort!(collect(keys(dgm)))
+    fvals = values(ph)
+
+    ST = Vector{Int}[]
+    # i = 16
+    for i in 1:length(fvals)-1
+        cv, nv = fvals[i:i+1]
+        itr = collect(Iterators.flatten(filter(x-> cv < death(x) <=nv, dgm[d]) for d in dims))
+        gs = ComputationalHomology.generator.(itr)
+        # g = gs[2]
+        for g in gs
+            ComputationalHomology.dim(g) > 0 && continue
+
+            splxs = unique(Iterators.flatten(values(cplx[sid, 0]) for sid in keys(g)))
+            mrg = deepcopy(mtree[end])
+            mrgidx = map(c->any(s-> s ∈ c, splxs), mrg)
+            c1i = mrgidx[1]
+            merged = vcat(mrg[mrgidx]...)
+            deleteat!(mrg, mrgidx)
+            append!(mrg, [merged])
+
+            push!(mtree, mrg)
+            push!(mvals, cv)
+            @debug "Merging" at=mvals[end] state=mtree[end]' generator=g
+        end
+    end
+    return Agglomeration(mtree, mergers, mvals)
+end
+
+"""
+    agglomerate(flt::Filtration, mcr::ModelClusteringResult, X::AbstractMatrix) -> (PLMClusteringResult, Agglomeration)
+
+Return agglomerative piecewise clustering from the filtration `flt` by finding a corrspondent minimum MDL value.
+"""
+function agglomerateph(flt::Filtration, mcr::ModelClusteringResult,
+                     X::AbstractMatrix; individual=true)
+    agg = agglomerateph(flt, individual=individual)
     return plmc(agg, mcr, X, filtration=flt), agg
 end
 

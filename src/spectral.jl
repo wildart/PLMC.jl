@@ -1,4 +1,6 @@
-using SparseArrays, Arpack
+using LinearAlgebra
+using SparseArrays
+using Arpack
 
 """Laplacian of an adjacency matrix `A`"""
 laplacian(A::AbstractSparseMatrix) = spdiagm(0=>vec(sum(A, dims=2))) - A
@@ -6,7 +8,7 @@ laplacian(A::AbstractSparseMatrix) = spdiagm(0=>vec(sum(A, dims=2))) - A
 """Normalized laplacian of an adjacency matrix `A`"""
 function normalized_laplacian(A::AbstractSparseMatrix)
     D = spdiagm(0=>1.0./sqrt.(vec(sum(A, dims=2))))
-    return sparse(1.0I, size(D)) - D*A*D
+    return sparse(I, size(D)) - D*A*D
 end
 
 """Spectral clustering results
@@ -57,4 +59,5 @@ function spectralclust(A::AbstractSparseMatrix, k::Int; method=:njw, init=:kmpp)
     KM = kmeans(ϕ', k, init=init)
     return SpectralResult(KM, real(λ))
 end
-spectralclust(cplx::AbstractComplex, k::Int; kwargs...) = spectralclust(adjacency_matrix(cplx, Float64), k; kwargs...)
+spectralclust(cplx::AbstractComplex, k::Int; kwargs...) =
+    spectralclust(ComputationalHomology.adjacency_matrix(cplx, Float64), k; kwargs...)
