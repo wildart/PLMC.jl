@@ -169,7 +169,7 @@ function agglomerateph(flt::Filtration; individual=true)
             splxs = unique(Iterators.flatten(values(cplx[sid, 0]) for sid in keys(g)))
             mrg = deepcopy(mtree[end])
             mrgidx = map(c->any(s-> s ∈ c, splxs), mrg)
-            c1i = mrgidx[1]
+            push!(mergers, mrg[mrgidx])
             merged = vcat(mrg[mrgidx]...)
             deleteat!(mrg, mrgidx)
             append!(mrg, [merged])
