@@ -171,9 +171,10 @@ function agglomerateph(flt::Filtration, mcr::ModelClusteringResult,
 end
 
 function mergecost(nodes::Vector{Vector{Int}}, measure::Function,
-                   mcr::ModelClusteringResult, X::AbstractMatrix, β::Int)
+                   mcr::ModelClusteringResult, X::AbstractMatrix, β::Int;
+                   kwargs...)
     # println("nodes: ", length(nodes))
-    ds = [P′=>measure(P′, mcr, X) for P′ in combinations(nodes, 2)]
+    ds = [P′=>measure(P′, mcr, X; kwargs...) for P′ in combinations(nodes, 2)]
     dsi = sortperm(ds, by=last)
     mi = min(β, length(dsi))
     return ds[dsi[1:mi]]
@@ -184,15 +185,16 @@ end
 
 Construct agglomerative pairwise clustering through the beam search using `measure` function. `β` is a length of the beam.
 """
-function agglomerate(measure::Function,
-                     mcr::ModelClusteringResult,
-                     X::AbstractMatrix; β=1, βsize=β)
+function agglomerate(measure::Function, mcr::ModelClusteringResult,
+                     X::AbstractMatrix; kwargs...)
     k = nclusters(mcr)
+    args = Dict(kwargs...)
+    β = get(args, :β, 1)
+    βsize = get(args, :βsize, β)
 
     # initialize beam storage
     beam = Agglomeration[]
     push!(beam, Agglomeration([[i] for i in 1:k]))
-
     bcount = β
     cls = last(first(beam))
     while length(cls) > 1
@@ -202,7 +204,7 @@ function agglomerate(measure::Function,
             tmp = Agglomeration[]
             while length(beam) > 0
                 agg = pop!(beam)
-                mcosts = mergecost(last(agg), measure, mcr, X, β)
+                mcosts = mergecost(last(agg), measure, mcr, X, β; kwargs...)
                 for mrg in mcosts
                     @debug "Merging" at=mrg aggregation=agg
                     newagg = deepcopy(agg)

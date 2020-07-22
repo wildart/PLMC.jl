@@ -63,7 +63,8 @@ function mdldiff(P′::Vector{<:MultivariateDistribution}, sz::Vector{Int},
     return LL - log(n) + maximum(s1 .- s2)
 end
 
-function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult,
+                 X::AbstractMatrix; kwargs...)
     assign = assignments(mcr)
     mrgidxs = map(m->findall(i-> i ∈ m, assign), mrg)
     idxs = vcat(mrgidxs...)
