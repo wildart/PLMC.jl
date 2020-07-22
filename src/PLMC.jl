@@ -165,12 +165,13 @@ end
 Return agglomerative piecewise clustering from the filtration `flt` by finding a corrspondent minimum MDL value.
 """
 function agglomerateph(flt::Filtration, mcr::ModelClusteringResult,
-                     X::AbstractMatrix; individual=true)
+                       X::AbstractMatrix; individual=true)
     agg = agglomerateph(flt, individual=individual)
     return plmc(agg, mcr, X, filtration=flt), agg
 end
 
-function mergecost(nodes::Vector{Vector{Int}}, measure::Function, mcr::ModelClusteringResult, X::AbstractMatrix, β::Int)
+function mergecost(nodes::Vector{Vector{Int}}, measure::Function,
+                   mcr::ModelClusteringResult, X::AbstractMatrix, β::Int)
     # println("nodes: ", length(nodes))
     ds = [P′=>measure(P′, mcr, X) for P′ in combinations(nodes, 2)]
     dsi = sortperm(ds, by=last)
@@ -203,7 +204,7 @@ function agglomerate(measure::Function,
                 agg = pop!(beam)
                 mcosts = mergecost(last(agg), measure, mcr, X, β)
                 for mrg in mcosts
-                    # println("Merged: ", mrg)
+                    @debug "Merging" at=mrg aggregation=agg
                     newagg = deepcopy(agg)
                     push!(newagg, mrg)
                     push!(tmp, newagg)
@@ -222,11 +223,9 @@ function agglomerate(measure::Function,
         # map(a->a.clusters[end] => count(a), beam)
         cls = last(first(beam))
     end
-    agg = first(beam)
-    return plmc(agg, mcr, X), agg
+    return first(beam)
 end
 
-# Find clustering with minimal MDL value
 """
     plmc(agg::Agglomeration, mcr::ModelClusteringResult, X::AbstractMatrix) -> PLMClusteringResult
 
@@ -246,18 +245,33 @@ function plmc(agg::Agglomeration,
     return PLMClusteringResult(mcr, agg.clusters[mdlidx], scplx, ϵ)
 end
 
-function plmc(::Type{Topological}, flt::Filtration,
-              mcr::ModelClusteringResult,
-              X::AbstractMatrix; individual=true, kwargs...)
-    agg = agglomerate(flt, individual=individual)
+"""
+    plmc(AlgorithmType, flt::Filtration, mcr::ModelClusteringResult, X::AbstractMatrix) -> PLMClusteringResult
+
+Construct a piecewise clustering of the dataset `X` using `AlgorithmType` algorithm given the cover represented by a filtration `flt` and a mode-based clustering `mcr`.
+"""
+function plmc(::Type{Topological}, X::AbstractMatrix, flt::Filtration,
+              mcr::ModelClusteringResult; kwargs...)
+    agg = agglomerate(flt; kwargs...)
     plmc(agg, mcr, X, filtration=flt)
 end
 
-function plmc(::Type{PHomology}, flt::Filtration,
-              mcr::ModelClusteringResult,
-              X::AbstractMatrix; individual=true, kwargs...)
-    agg = agglomerateph(flt, individual=individual)
+function plmc(::Type{PHomology}, X::AbstractMatrix, flt::Filtration,
+              mcr::ModelClusteringResult; kwargs...)
+    agg = agglomerateph(flt; kwargs...)
     plmc(agg, mcr, X, filtration=flt)
+end
+
+function plmc(::Type{MDL}, X::AbstractMatrix, flt::Filtration,
+              mcr::ModelClusteringResult; kwargs...)
+    agg = agglomerate(mdldiff, mcr, X; kwargs...)
+    plmc(agg, mcr, X)
+end
+
+function plmc(::Type{InformationBottleneck}, X::AbstractMatrix, flt::Filtration,
+              mcr::ModelClusteringResult; kwargs...)
+    agg = agglomerate(ibdiff, mcr, X; kwargs...)
+    plmc(agg, mcr, X)
 end
 
 end

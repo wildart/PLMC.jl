@@ -39,6 +39,7 @@ Returns MDL difference between original and merged P′ = {Pᵢ ∪ Pⱼ} cluste
 function mdldiff(P′::AbstractMixtureModel,
                  MCL::Vector{<:MultivariateDistribution},
                  X::AbstractMatrix)
+    n = size(X, 2)
     Pᵢ = components(P′)[1]
     Pⱼ = components(P′)[2]
     LL = mapslices(x->max(-logpdf(Pᵢ,x), -logpdf(Pⱼ,x)), X, dims=1) |> sum
@@ -48,9 +49,27 @@ function mdldiff(P′::AbstractMixtureModel,
     return LL + R′Rᵢ + Rⱼ
 end
 
-function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
-    # print("$mrg => ")
-    mrgidxs = vcat(mrg...)
-    idxs = findall(i-> i ∈ mrgidxs, assignments(mcr))
-    mdldiff(modelclass(mcr, [mrgidxs])[], mcr.models, view(X ,:,idxs))
+function mdldiff(P′::Vector{<:MultivariateDistribution}, sz::Vector{Int},
+                 X::AbstractMatrix)
+    n = sum(sz)
+    logPᵢ = logpdf(P′[1],X)
+    logPⱼ = logpdf(P′[2],X)
+    LL = sum(max(pᵢ, pⱼ) for (pᵢ, pⱼ) in zip(logPᵢ, logPⱼ))
+    s1 = maximum.(eachcol([minimum(map(p-> -logpdf(p, x), components(p))) for p in P′, x in eachcol(X)]))
+    s2 = -log.(sz[2]./exp.(logPᵢ) .+ sz[1]./exp.(logPⱼ))
+    # println("LL[$LL] + max[$(maximum(s1 .- s2))]")
+    return LL - log(n) + maximum(s1 .- s2)
 end
+
+function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+    assign = assignments(mcr)
+    mrgidxs = map(m->findall(i-> i ∈ m, assign), mrg)
+    idxs = vcat(mrgidxs...)
+    mdldiff(modelclass(mcr, mrg), map(length, mrgidxs), view(X ,:,idxs))
+end
+
+# function mdldiff2(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+#     mrgidxs = vcat(mrg...)
+#     idxs = findall(i-> i ∈ mrgidxs, assignments(mcr))
+#     mdldiff(first(modelclass(mcr, [mrgidxs])), models(mcr), view(X ,:,idxs))
+# end

@@ -15,14 +15,8 @@ function Distributions.MixtureModel(mcr::ModelClusteringResult,
 end
 
 """ Create a model class from the model-based clustering `mcr`. """
-function modelclass(mcr::ModelClusteringResult,
-                    clsidxs::Array{Array{Int64,1},1})
-    return  [
-        length(clidxs) == 1 ?
-        mcr.models[clidxs][] :
-        MixtureModel(mcr, clidxs) for clidxs in clsidxs
-    ]
-end
+modelclass(mcr::ModelClusteringResult, clsidxs::Array{Array{Int64,1},1}) =
+    [MixtureModel(mcr, clidxs) for clidxs in clsidxs]
 
 struct Agglomeration
     clusters::Vector{Vector{Vector{Int}}}
