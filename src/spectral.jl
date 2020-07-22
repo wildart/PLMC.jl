@@ -23,7 +23,7 @@ counts(clust::SpectralResult) = counts(clust.res)
 
 """Spectral clustering using of square similarity (adjacency) matrix
 
-Accepts sparse matrix `M` and `k` number of expected clusters as parameters.
+Accepts sparse matrix `M` and `k` number of expected clusters as parϵ = Infameters.
 Parameter `method` specifies clustering algorithm:
 
 - `:njw` for "On Spectral Clustering: Analysis and an algorithm" by Nj, Jordan, Weiss (2002) (default)
@@ -60,4 +60,18 @@ function spectralclust(A::AbstractSparseMatrix, k::Int; method=:njw, init=:kmpp)
     return SpectralResult(KM, real(λ))
 end
 spectralclust(cplx::AbstractComplex, k::Int; kwargs...) =
-    spectralclust(ComputationalHomology.adjacency_matrix(cplx, Float64), k; kwargs...)
+    spectralclust(ComputationalHomology.adjacency_matrix(cplx), k; kwargs...)
+
+function plmc(::Type{Spectral},
+              flt::Filtration,
+              mcr::ModelClusteringResult;
+              k = round(Int, sqrt(size(complex(flt),0))), kwargs...)
+    cplx = complex(flt)
+    scr = spectralclust(cplx, k; kwargs...)
+    meta = [Int[] for i in 1:nclusters(scr)]
+    # group clustres in a metacluster
+    for (i, a) in enumerate(assignments(scr))
+        push!(meta[a], i)
+    end
+    return PLMClusteringResult(mcr, meta, cplx, Inf)
+end
