@@ -1,6 +1,15 @@
+""" Abstract type for metaclustering techniques """
+abstract type AbstarctMetaClustering end
+
+struct Topological <: AbstarctMetaClustering end
+struct PHomology <: AbstarctMetaClustering end
+struct Spectral <: AbstarctMetaClustering end
+struct MDL <: AbstarctMetaClustering end
+struct InformationBottleneck <: AbstarctMetaClustering end
+
 """ Convert the model-based clustering `mcr` into a mixture model. """
-function MixtureModel(mcr::ModelClusteringResult,
-                      p::Vector{Int} = collect(1:nclusters(mcr)))
+function Distributions.MixtureModel(mcr::ModelClusteringResult,
+                                    p::AbstractVector{Int} = 1:nclusters(mcr))
     cnts = counts(mcr)
     return MixtureModel(mcr.models[p], cnts[p]./sum(cnts[p]))
 end
@@ -73,22 +82,3 @@ function assignments(R::PLMClusteringResult)
     return assgn
 end
 models(R::PLMClusteringResult) = models(R.models)
-
-@recipe function f(R::T) where {T<:PLMClusteringResult}
-    χ = isinf(R.ϵ) ? 2.0 : R.ϵ
-    for (i,idxs) in enumerate(R.clusters)
-        addlabel = true
-        for c in idxs
-            @series begin
-                label --> (addlabel ? "MC$i" : "")
-                linecolor --> i
-                models(R)[c], χ
-            end
-            addlabel = false
-        end
-    end
-    if length(size(R.complex)) > 0
-        D = hcat(map(mean, models(R))...)'
-        R.complex, D
-    end
-end
