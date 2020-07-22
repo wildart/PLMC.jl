@@ -4,7 +4,8 @@
 The regret value of the probability distribution `P` w.r.t the model class `MC`
 in the point `x`.
 """
-regret(P, MC, x) = -logpdf(P, x) - minimum(map(p->-logpdf(p,x), MC))
+regret(P, MC, x::AbstractVector) = -logpdf(P, x) - minimum(map(p->-logpdf(p,x), MC))
+regret(P, MC, X::AbstractMatrix) = -logpdf(P, X) .- min.((-logpdf(p, X) for p in MC)...)
 
 """
     regretmax(P::MultivariateDistribution, MC::Vector{MultivariateDistribution}, X::AbstractMatrix)
@@ -12,7 +13,7 @@ regret(P, MC, x) = -logpdf(P, x) - minimum(map(p->-logpdf(p,x), MC))
 The maximal regret of the probability distribution `P` w.r.t the model class `MC`
 for all points of `X`.
 """
-regretmax(P, MC, X) = mapslices(x->regret(P, MC, x), X, dims=1) |> maximum
+regretmax(P, MC, X) = maximum(regret(P,MC,X))
 
 """
 refinedmdl(LC::Vector{MultivariateDistribution}, MC::ClusterComplex.MahalonobisClusteringResult, X::AbstractMatrix) -> (Float64, Float64, Float64)
@@ -23,8 +24,8 @@ for all points of `X`. Returns tuple of MDL, likelihood, and complexity values.
 function refinedmdl(LC::Vector{<:MultivariateDistribution},
                     MS::Vector{<:MultivariateDistribution},
                     X::AbstractMatrix)
-    LKH = sum(minimum(mapslices(x->[-logpdf(P, x) for P in LC], X, dims=1), dims=1))
-    Rₘₐₓ = sum([regretmax(P, MS, X) for P in LC])
+    LKH = sum(min.((-logpdf(p, X) for p in LC)...))
+    Rₘₐₓ = sum(PLMC.regretmax(P, MS, X) for P in LC)
     return LKH + Rₘₐₓ, LKH, Rₘₐₓ
 end
 
@@ -56,6 +57,7 @@ function mdldiff(P′::Vector{<:MultivariateDistribution}, sz::Vector{Int},
     logPⱼ = logpdf(P′[2],X)
     LL = sum(max(pᵢ, pⱼ) for (pᵢ, pⱼ) in zip(logPᵢ, logPⱼ))
     s1 = maximum.(eachcol([minimum(map(p-> -logpdf(p, x), components(p))) for p in P′, x in eachcol(X)]))
+    # s1 = maximum(min.((-logpdf(p, X) for p in LC)...))
     s2 = -log.(sz[2]./exp.(logPᵢ) .+ sz[1]./exp.(logPⱼ))
     # println("LL[$LL] + max[$(maximum(s1 .- s2))]")
     return LL - log(n) + maximum(s1 .- s2)
