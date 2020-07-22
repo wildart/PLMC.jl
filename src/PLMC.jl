@@ -7,9 +7,7 @@ using ClusterComplex
 using Combinatorics
 using Random
 using ComputationalHomology
-using RecipesBase
 
-import Distributions: MixtureModel
 import Clustering: assignments, counts, nclusters
 import ClusterComplex: models
 
@@ -18,12 +16,13 @@ export PLMClusteringResult, modelclass,
        Agglomeration,
        agglomerate, agglomerateph, testmerges, plmc,
        #re-export,
-       MvNormal, MixtureModel, MixtureModel
+       MvNormal, MixtureModel
 
 include("types.jl")
 include("mdl.jl")
 include("ib.jl")
 include("spectral.jl")
+include("plots.jl")
 
 # Agglomerative Clustering
 
@@ -52,26 +51,6 @@ function testmerges(mtree::Vector{Vector{Vector{Int}}},
         @debug "$i -> $strcls" MDL=MDL[i] LL=LL[i] Rₘₐₓ=Rₘₐₓ[i]
     end
     return MDL, LL, Rₘₐₓ
-end
-
-# Find clustering with minimal MDL value
-"""
-    plmc(agg::Agglomeration, mcr::ModelClusteringResult, X::AbstractMatrix) -> PLMClusteringResult
-
-Construct a piecewise clustering from the agglomerative merge tree `agg` by finding a corrspondent minimum MDL value.
-"""
-function plmc(agg::Agglomeration,
-              mcr::ModelClusteringResult,
-              X::AbstractMatrix; filtration=nothing)
-    MDL, _ = testmerges(agg.clusters, mcr, X)
-    mdlval, mdlidx = findmin(MDL)
-    ϵ = Inf
-    scplx = SimplicialComplex()
-    if filtration !== nothing
-        ϵ = agg.costs[mdlidx]
-        scplx = complex(filtration, ϵ)
-    end
-    return PLMClusteringResult(mcr, agg.clusters[mdlidx], scplx, ϵ)
 end
 
 """
@@ -245,6 +224,40 @@ function agglomerate(measure::Function,
     end
     agg = first(beam)
     return plmc(agg, mcr, X), agg
+end
+
+# Find clustering with minimal MDL value
+"""
+    plmc(agg::Agglomeration, mcr::ModelClusteringResult, X::AbstractMatrix) -> PLMClusteringResult
+
+Construct a piecewise clustering from the agglomerative merge tree `agg` by finding a corrspondent minimum MDL value.
+"""
+function plmc(agg::Agglomeration,
+              mcr::ModelClusteringResult,
+              X::AbstractMatrix; filtration=nothing)
+    MDL, _ = testmerges(agg.clusters, mcr, X)
+    mdlval, mdlidx = findmin(MDL)
+    ϵ = Inf
+    scplx = SimplicialComplex()
+    if filtration !== nothing
+        ϵ = agg.costs[mdlidx]
+        scplx = complex(filtration, ϵ)
+    end
+    return PLMClusteringResult(mcr, agg.clusters[mdlidx], scplx, ϵ)
+end
+
+function plmc(::Type{Topological}, flt::Filtration,
+              mcr::ModelClusteringResult,
+              X::AbstractMatrix; individual=true, kwargs...)
+    agg = agglomerate(flt, individual=individual)
+    plmc(agg, mcr, X, filtration=flt)
+end
+
+function plmc(::Type{PHomology}, flt::Filtration,
+              mcr::ModelClusteringResult,
+              X::AbstractMatrix; individual=true, kwargs...)
+    agg = agglomerateph(flt, individual=individual)
+    plmc(agg, mcr, X, filtration=flt)
 end
 
 end
