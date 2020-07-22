@@ -21,15 +21,15 @@ Calculate a refined MDL value for the model class `LC` w.r.t. to the model class
 for all points of `X`. Returns tuple of MDL, likelihood, and complexity values.
 """
 function refinedmdl(LC::Vector{<:MultivariateDistribution},
-                    MC::Vector{<:MultivariateDistribution},
+                    MS::Vector{<:MultivariateDistribution},
                     X::AbstractMatrix)
     LKH = sum(minimum(mapslices(x->[-logpdf(P, x) for P in LC], X, dims=1), dims=1))
-    Rₘₐₓ = sum([regretmax(P, MC, X) for P in LC])
+    Rₘₐₓ = sum([regretmax(P, MS, X) for P in LC])
     return LKH + Rₘₐₓ, LKH, Rₘₐₓ
 end
 
 refinedmdl(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix) =
-    refinedmdl(modelclass(mcr, mrg), mcr.models, X)
+    refinedmdl(modelclass(mcr, mrg), models(mcr), X)
 
 """
     mdldiff(P′::AbstractMixtureModel, MC::Vector{MultivariateDistribution}, X::AbstractMatrix) -> Float64

@@ -49,8 +49,6 @@ function testmerges(mtree::Vector{Vector{Vector{Int}}},
             String(take!(io))
         end
         MDL[i], LL[i], Rₘₐₓ[i] = refinedmdl(mtree[i], mcr, X)
-        # print("$i -> ", mtree[i], "=> ")
-        # println("MDL: ", MDL[i], ", LL: ", LL[i], ", Rₘₐₓ: ", Rₘₐₓ[i])
         @debug "$i -> $strcls" MDL=MDL[i] LL=LL[i] Rₘₐₓ=Rₘₐₓ[i]
     end
     return MDL, LL, Rₘₐₓ
