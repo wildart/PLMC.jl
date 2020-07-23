@@ -1,5 +1,5 @@
 name = "PLMC"
-version="0.1.0"
+version="0.2.0"
 uuid = "06036fec-f111-485c-a690-0ab832ad5eb6"
 
 [deps]

@@ -39,9 +39,9 @@ function testmerges(mtree::Vector{Vector{Vector{Int}}},
                     mcr::ModelClusteringResult,
                     X::AbstractMatrix)
     c = length(mtree)
-    MDL = fill(0.0, c)
-    LL = fill(0.0, c)
-    Rₘₐₓ = fill(0.0, c)
+    MDL = fill(Inf, c)
+    LL = fill(Inf, c)
+    Rₘₐₓ = fill(Inf, c)
     for i in 1:c
         strcls = let io = IOBuffer()
             show_vector(io, mtree[i])
@@ -58,7 +58,7 @@ end
 
 Construct agglomerative pairwise merge tree from the filtration `flt`.
 """
-function agglomerate(flt::Filtration; individual=true)
+function agglomerate(flt::Filtration; individual=true, kwargs...)
     mtree   = Vector{Vector{Int}}[]
     mergers = Vector{Vector{Int}}[]
     mvals   = valtype(flt)[]
@@ -233,11 +233,22 @@ end
 
 Construct a piecewise clustering from the agglomerative merge tree `agg` by finding a corrspondent minimum MDL value.
 """
-function plmc(agg::Agglomeration,
-              mcr::ModelClusteringResult,
-              X::AbstractMatrix; filtration=nothing)
-    MDL, _ = testmerges(agg.clusters, mcr, X)
-    mdlval, mdlidx = findmin(MDL)
+function plmc(agg::Agglomeration, mcr::ModelClusteringResult,
+              X::AbstractMatrix, filtration=nothing; kwargs...)
+    args = Dict(kwargs...)
+    score = get(args, :score, :mdl)
+
+    MDL, LL, REG = testmerges(agg.clusters, mcr, X)
+    mdlidx = if score == :mdl
+        findmin(MDL)[2]
+    elseif score == :posll
+        i = findfirst(ll->ll>0, LL)
+        i === nothing ? length(LL) : i-1
+    elseif score == :change
+        i = findfirst(ll->ll>0, LL .- REG)
+        i === nothing ? length(LL) : i-1
+    end
+
     ϵ = Inf
     scplx = SimplicialComplex()
     if filtration !== nothing
@@ -255,13 +266,13 @@ Construct a piecewise clustering of the dataset `X` using `AlgorithmType` algori
 function plmc(::Type{Topological}, X::AbstractMatrix, flt::Filtration,
               mcr::ModelClusteringResult; kwargs...)
     agg = agglomerate(flt; kwargs...)
-    plmc(agg, mcr, X, filtration=flt)
+    plmc(agg, mcr, X, flt; kwargs...)
 end
 
 function plmc(::Type{PHomology}, X::AbstractMatrix, flt::Filtration,
               mcr::ModelClusteringResult; kwargs...)
     agg = agglomerateph(flt; kwargs...)
-    plmc(agg, mcr, X, filtration=flt)
+    plmc(agg, mcr, X, flt; kwargs...)
 end
 
 function plmc(::Type{MDL}, X::AbstractMatrix, flt::Filtration,
