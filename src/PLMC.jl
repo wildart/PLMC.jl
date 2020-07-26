@@ -53,6 +53,28 @@ function testmerges(mtree::Vector{Vector{Vector{Int}}},
     return MDL, LL, Rₘₐₓ
 end
 
+function testmergesrev(mtree::Vector{Vector{Vector{Int}}},
+                    mcr::ModelClusteringResult,
+                    X::AbstractMatrix)
+    c = length(mtree)
+    MDL = Inf
+    mdlidx = c
+    MS = models(mcr)
+    for i in c:-1:1
+        LC = modelclass(mcr, mtree[i])
+        LL = sum(min.((-PLMC.logpdf(p, X) for p in LC)...))
+        Rₘₐₓ = maximum(regretmax(P, MS, X) for P in LC) # sum
+        cMDL = LL+Rₘₐₓ
+        if cMDL < MDL
+            MDL = cMDL
+        else
+            break
+        end
+        mdlidx = i
+    end
+    return mdlidx
+end
+
 """
     agglomerate(flt::Filtration) -> Agglomeration
 
@@ -236,17 +258,13 @@ Construct a piecewise clustering from the agglomerative merge tree `agg` by find
 function plmc(agg::Agglomeration, mcr::ModelClusteringResult,
               X::AbstractMatrix, filtration=nothing; kwargs...)
     args = Dict(kwargs...)
-    score = get(args, :score, :mdl)
+    score = get(args, :score, :slow)
 
-    MDL, LL, REG = testmerges(agg.clusters, mcr, X)
-    mdlidx = if score == :mdl
+    mdlidx = if score == :slow
+        MDL, _ = testmerges(agg.clusters, mcr, X)
         findmin(MDL)[2]
-    elseif score == :posll
-        i = findfirst(ll->ll>0, LL)
-        i === nothing ? length(LL) : i-1
-    elseif score == :change
-        i = findfirst(ll->ll>0, LL .- REG)
-        i === nothing ? length(LL) : i-1
+    else
+        testmergesrev(agg.clusters, mcr, X)
     end
 
     ϵ = Inf

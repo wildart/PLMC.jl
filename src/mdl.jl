@@ -24,8 +24,8 @@ for all points of `X`. Returns tuple of MDL, likelihood, and complexity values.
 function refinedmdl(LC::Vector{<:MultivariateDistribution},
                     MS::Vector{<:MultivariateDistribution},
                     X::AbstractMatrix)
-    LKH = sum(min.((-logpdf(p, X) for p in LC)...))
-    Rₘₐₓ = sum(PLMC.regretmax(P, MS, X) for P in LC)
+    LKH = min.((-logpdf(p, X) for p in LC)...) |> sum
+    Rₘₐₓ = maximum(regretmax(P, MS, X) for P in LC)
     return LKH + Rₘₐₓ, LKH, Rₘₐₓ
 end
 
