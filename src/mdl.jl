@@ -25,12 +25,27 @@ function refinedmdl(LC::Vector{<:MultivariateDistribution},
                     MS::Vector{<:MultivariateDistribution},
                     X::AbstractMatrix)
     LKH = min.((-logpdf(p, X) for p in LC)...) |> sum
-    Rₘₐₓ = maximum(regretmax(P, MS, X) for P in LC)
+    Rₘₐₓ = sum(regretmax(P, MS, X) for P in LC)
     return LKH + Rₘₐₓ, LKH, Rₘₐₓ
 end
 
 refinedmdl(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix) =
     refinedmdl(modelclass(mcr, mrg), models(mcr), X)
+
+"""
+    nml(LC::Vector{MultivariateDistribution}, MC::ClusterComplex.MahalonobisClusteringResult, X::AbstractMatrix) -> (Float64, Float64, Float64)
+
+Calculate a normalized message length for the model class `LC` w.r.t. to the model class 'MC'
+for all points of `X`. Returns tuple of MDL, likelihood, and complexity values.
+"""
+function nml(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+    d, n = size(X)
+    LC = modelclass(mcr, mrg)
+    logps = (-logpdf(p, X) for p in LC)
+    LL = min.(logps...) |> sum
+    COMP = max.(map(v->exp.(-v),logps)...) |> sum |> log
+    return LL+n*COMP, LL, COMP
+end
 
 """
     mdldiff(P′::AbstractMixtureModel, MC::Vector{MultivariateDistribution}, X::AbstractMatrix) -> Float64

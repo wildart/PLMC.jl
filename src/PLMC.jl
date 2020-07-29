@@ -7,6 +7,7 @@ using ClusterComplex
 using Combinatorics
 using Random
 using ComputationalHomology
+using Optim: optimize
 
 import Clustering: assignments, counts, nclusters
 import ClusterComplex: models
@@ -23,6 +24,7 @@ include("mdl.jl")
 include("ib.jl")
 include("spectral.jl")
 include("plots.jl")
+include("utils.jl")
 
 # Agglomerative Clustering
 
@@ -35,46 +37,23 @@ function show_vector(io, v::AbstractVector)
     print(io, "]")
 end
 
-function testmerges(mtree::Vector{Vector{Vector{Int}}},
-                    mcr::ModelClusteringResult,
-                    X::AbstractMatrix)
+function testmerges(scorefunc, mtree::Vector{Vector{Vector{Int}}},
+                    mcr::ModelClusteringResult, X::AbstractMatrix)
     c = length(mtree)
     MDL = fill(Inf, c)
     LL = fill(Inf, c)
     Rₘₐₓ = fill(Inf, c)
     for i in 1:c
-        strcls = let io = IOBuffer()
+        MDL[i], LL[i], Rₘₐₓ[i] = scorefunc(mtree[i], mcr, X)
+        @debug begin
+            io = IOBuffer()
             show_vector(io, mtree[i])
-            String(take!(io))
+            strcls = String(take!(io))
+            "$i -> $strcls\nMDL = $(MDL[i])\nLL = $(LL[i])\nRₘₐₓ = $(Rₘₐₓ[i])"
         end
-        MDL[i], LL[i], Rₘₐₓ[i] = refinedmdl(mtree[i], mcr, X)
-        @debug "$i -> $strcls" MDL=MDL[i] LL=LL[i] Rₘₐₓ=Rₘₐₓ[i]
     end
     return MDL, LL, Rₘₐₓ
 end
-
-function testmergesrev(mtree::Vector{Vector{Vector{Int}}},
-                    mcr::ModelClusteringResult,
-                    X::AbstractMatrix)
-    c = length(mtree)
-    MDL = Inf
-    mdlidx = c
-    MS = models(mcr)
-    for i in c:-1:1
-        LC = modelclass(mcr, mtree[i])
-        LL = sum(min.((-PLMC.logpdf(p, X) for p in LC)...))
-        Rₘₐₓ = maximum(regretmax(P, MS, X) for P in LC) # sum
-        cMDL = LL+Rₘₐₓ
-        if cMDL < MDL
-            MDL = cMDL
-        else
-            break
-        end
-        mdlidx = i
-    end
-    return mdlidx
-end
-
 """
     agglomerate(flt::Filtration) -> Agglomeration
 
@@ -258,14 +237,11 @@ Construct a piecewise clustering from the agglomerative merge tree `agg` by find
 function plmc(agg::Agglomeration, mcr::ModelClusteringResult,
               X::AbstractMatrix, filtration=nothing; kwargs...)
     args = Dict(kwargs...)
-    score = get(args, :score, :slow)
+    scorefunc = get(args, :score, refinedmdl)
+    findscore = get(args, :find, findglobalmin)
 
-    mdlidx = if score == :slow
-        MDL, _ = testmerges(agg.clusters, mcr, X)
-        findmin(MDL)[2]
-    else
-        testmergesrev(agg.clusters, mcr, X)
-    end
+    MDL, _ = testmerges(scorefunc, agg.clusters, mcr, X)
+    mdlidx = findscore(MDL)
 
     ϵ = Inf
     scplx = SimplicialComplex()
