@@ -1,5 +1,6 @@
 function findglobalmin(J, tol=1e-4; debug=false)
     N = length(J)
+    N == 1 && return 1
     M = zeros(Bool,N)
     P = zeros(N)
     # find all minima
@@ -19,7 +20,7 @@ function findglobalmin(J, tol=1e-4; debug=false)
     debug && println(M)
     # debug && println(P[M])
     # zero minima below tolerance (skip first & last)
-    minima, MI = if length(M[2:end-1]) > 0
+    minima, MI = if sum(M[2:end-1]) > 0
         Mnew = copy(M)
         Mnew[1] = Mnew[end] = false
         mval, mi = findmin(J[Mnew])
@@ -33,11 +34,14 @@ function findglobalmin(J, tol=1e-4; debug=false)
 end
 
 function findglobalmin2(J; debug=false)
+    N = length(J)
+    N == 1 && return 1
     f(x) = J[round(Int,x)]
-    r = optimize(f, 1, length(J))
+    r = optimize(f, 1, N)
     debug && println(r)
     idxs = sortperm(J)
     si = findfirst(x-> x>=minimum(r), J[idxs])
+    si === nothing ? N : si
     idxs[si]
 end
 
