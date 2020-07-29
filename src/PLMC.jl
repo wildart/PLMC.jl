@@ -272,13 +272,13 @@ end
 function plmc(::Type{MDL}, X::AbstractMatrix, flt::Filtration,
               mcr::ModelClusteringResult; kwargs...)
     agg = agglomerate(mdldiff, mcr, X; kwargs...)
-    plmc(agg, mcr, X)
+    plmc(agg, mcr, X; kwargs...)
 end
 
 function plmc(::Type{InformationBottleneck}, X::AbstractMatrix, flt::Filtration,
               mcr::ModelClusteringResult; kwargs...)
     agg = agglomerate(ibdiff, mcr, X; kwargs...)
-    plmc(agg, mcr, X)
+    plmc(agg, mcr, X; kwargs...)
 end
 
 end
