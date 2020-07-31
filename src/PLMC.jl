@@ -4,7 +4,6 @@ using StatsBase
 using Distributions
 using Clustering
 using ClusterComplex
-using Combinatorics
 using Random
 using ComputationalHomology
 using Optim: optimize
@@ -174,8 +173,17 @@ end
 function mergecost(nodes::Vector{Vector{Int}}, measure::Function,
                    mcr::ModelClusteringResult, X::AbstractMatrix, β::Int;
                    kwargs...)
-    # println("nodes: ", length(nodes))
-    ds = [P′=>measure(P′, mcr, X; kwargs...) for P′ in combinations(nodes, 2)]
+    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    assign = assignments(mcr)
+    return mergecost(nodes, measure, logps, assign, β; kwargs...)
+end
+
+function mergecost(nodes::Vector{Vector{Int}}, measure::Function,
+                   logps::AbstractMatrix, assign::Vector{Int}, β::Int;
+                   kwargs...)
+    n = length(nodes)
+    # println("nodes: ", n)
+    ds = [let nds = nodes[[i,j]]; nds=>measure(nds, logps, assign; kwargs...); end for i in 1:n, j in 1:n if i < j]
     dsi = sortperm(ds, by=last)
     mi = min(β, length(dsi))
     return ds[dsi[1:mi]]
@@ -193,24 +201,33 @@ function agglomerate(measure::Function, mcr::ModelClusteringResult,
     β = get(args, :β, 1)
     βsize = get(args, :βsize, β)
 
+    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    assign = assignments(mcr)
+
     # initialize beam storage
     beam = Agglomeration[]
     push!(beam, Agglomeration([[i] for i in 1:k]))
     bcount = β
     cls = last(first(beam))
-    while length(cls) > 1
+    terminate = false
+    while length(cls) > 1 && !terminate
         # fill beam structure with possible options
-
         while bcount > 0
             tmp = Agglomeration[]
             while length(beam) > 0
                 agg = pop!(beam)
-                mcosts = mergecost(last(agg), measure, mcr, X, β; kwargs...)
+                mcosts = mergecost(last(agg), measure, logps, assign, β; kwargs...)
                 for mrg in mcosts
                     @debug "Merging" at=mrg aggregation=agg
-                    newagg = deepcopy(agg)
-                    push!(newagg, mrg)
-                    push!(tmp, newagg)
+                    if isinf(mrg.second)
+                        push!(tmp, agg)
+                        terminate = true
+                        break
+                    else
+                        newagg = deepcopy(agg)
+                        push!(newagg, mrg)
+                        push!(tmp, newagg)
+                    end
                 end
             end
             unique!(a->last(a), tmp)

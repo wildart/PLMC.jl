@@ -66,12 +66,20 @@ end
 
 Returns MDL difference between original and merged P′ = {Pᵢ ∪ Pⱼ} clusterings.
 """
-function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix; kwargs...)
     logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
-    cs = counts(mcr)
+    return mdldiff(mrg, logps, assignments(mcr); kwargs...)
+end
+
+function mdldiff(mrg::Vector{Vector{Int}}, logps::AbstractMatrix, assign::Vector{Int}; kwargs...)
+    n = size(logps,1)
+    cs = zeros(Int, n)
+    for i in assign
+        cs[i] += 1
+    end
     ps = map(i->cs[i]./sum(cs[i]), mrg)
     logpms = mixlogpdf(logps, ps, mrg)
-    mrgidxs = map(m->findall(i-> i ∈ m, assignments(mcr)), mrg)
+    mrgidxs = map(m->findall(i-> i ∈ m, assign), mrg)
     return _mdldiff(logpms, logps, mrg, mrgidxs)
 end
 
