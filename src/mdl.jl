@@ -91,5 +91,5 @@ function _mdldiff(logP′::AbstractMatrix{T}, logPs::AbstractMatrix{T},
     NLL = maximum(view(logP′,allidxs,:), dims=2) |> sum
     s1 = max.(map(i-> minimum(view(-logPs,allidxs,i), dims=2), mrg)...)
     s2 = -log.(sz[2]./exp.(view(logP′,allidxs,1)) .+ sz[1]./exp.(view(logP′,allidxs,2)))
-    return NLL - log(n) + maximum(s1 .- s2)
+    return NLL + (maximum(s1 .- s2) - log(n))*n # normalize cost
 end
