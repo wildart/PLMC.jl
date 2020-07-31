@@ -1,8 +1,3 @@
-function posterior(Cidx::Int, Pidxs::Vector{Int}, mcr::ModelClusteringResult)
-    cnt = counts(mcr)
-    Cidx ∉ Pidxs ? 0.0 : cnt[Cidx]/sum(i->cnt[i], Pidxs)
-end
-
 """
     posterior(Cidx::Int, Pidxs::Vector{Int}, mcr::ModelClusteringResult, X::AbstractMatrix) -> Float64
 
@@ -32,38 +27,61 @@ function posterior(Cidx::Int, marginal::MixtureModel, X::AbstractMatrix)
     pc*sum(pdf(Cdist, X) ./ pdf(marginal, X))/pn
 end
 
+posterior(Cidx::Int, Pidxs::Vector{Int}, cnt::Vector{Int}) =
+    Cidx ∉ Pidxs ? 0.0 : cnt[Cidx]/sum(i->cnt[i], Pidxs)
+
+function posterior(Cidx::Int, priorC::AbstractVector{T}, logCs::AbstractMatrix{T},
+                   mgnl::AbstractVector{T}, idxs::Vector{Bool}) where {T <: AbstractFloat}
+    n = sum(idxs)
+    logCP = view(logCs, idxs, :)
+    priorC[Cidx]*sum(exp.(view(logCP,:,Cidx))./view(mgnl,idxs))/n
+end
+
 function ibdiff(P′::Vector{Vector{Int}},
                 mcr::ModelClusteringResult,
-                X::AbstractMatrix; hard::Bool=true, kwargs...)
-    k = nclusters(mcr)
-    n = size(X,2)
-    cnts = counts(mcr)
-    pC = map(c->c/n, cnts)
-    marginal = PLMC.MixtureModel(mcr)
-    ibd = 0.0
-    assign = assignments(mcr)
-    P′idxs = vcat(P′...)
+                X::AbstractMatrix; kwargs...)
+    logps = hcat((logpdf(p, X) for p in models(mcr))...)
+    return ibdiff(P′, logps, assignments(mcr); kwargs...)
+end
+
+function ibdiff(P′::Vector{Vector{Int}}, logCs::AbstractMatrix{T},
+                assign::Vector{Int}; hard=true,
+                marginal::Union{AbstractVector{T}, Nothing}=nothing,
+                kwargs...)  where {T <: AbstractFloat}
+    # precompute distributions
+    n, k = size(logCs)
+    cs = zeros(Int, k)
+    for i in assign
+        cs[i] += 1
+    end
+    pC = map(c->c/n, cs)
     pP′ = sum(sum(pC[P]) for P in P′)
+    if marginal === nothing && !hard
+        marginal = sum(exp.(logCs' .+ log.(pC)), dims=1)'
+    end
+    # calculate IB difference
+    P′idxs = vcat(P′...)
+    ibd = 0.0
     for C in 1:k
         pCP′ = if hard
-            posterior(C, P′idxs, mcr)
+            posterior(C, P′idxs, cs)
         else
             P′pts = map(i-> i ∈ P′idxs, assign)
-            PLMC.posterior(C, marginal, view(X,:,P′pts))
+            posterior(C, pC, logCs, marginal, P′pts)
         end
         Dₖₗ2 = pCP′ == 0.0 ? 0.0 : pCP′*log(pCP′/pP′)
         for P in P′
             pP  = sum(pC[P])
             pCP = if hard
-                posterior(C, P, mcr)
+                posterior(C, P, cs)
             else
                 Ppts = map(i-> i ∈ P, assign)
-                PLMC.posterior(C, marginal, view(X,:,Ppts))
+                posterior(C, pC, logCs, marginal, Ppts)
             end
             Dₖₗ1 = pCP == 0.0 ? 0.0 : pCP*log(pCP/pP)
             ibd += pC[C]*(Dₖₗ1 - Dₖₗ2)
         end
-        @debug "IB Difference" cluster=C IB=ibd
+        # @debug "IB Difference" cluster=C IB=ibd
     end
     return ibd
 end
