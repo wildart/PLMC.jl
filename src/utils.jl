@@ -63,3 +63,55 @@ function findlocalminrev(J)
     end
     return idx
 end
+
+function mixlogpdf(logps::Matrix{T}, ps::Vector{Vector{T}}, idxs::Vector{Vector{Int}}) where {T <: AbstractFloat}
+    # using the formula below for numerical stability
+    #
+    # logpdf(d, x) = log(sum_i pri[i] * pdf(cs[i], x))
+    #              = log(sum_i pri[i] * exp(logpdf(cs[i], x)))
+    #              = log(sum_i exp(logpri[i] + logpdf(cs[i], x)))
+    #              = m + log(sum_i exp(logpri[i] + logpdf(cs[i], x) - m))
+    #
+    #  m is chosen to be the maximum of logpri[i] + logpdf(cs[i], x)
+    #  such that the argument of exp is in a reasonable range
+    #
+    M = length(idxs)
+    N, L = size(logps)
+
+    @assert all(e->length(e[1]) == length(e[2]), zip(idxs, ps)) "Sizes of indexes and priors must be equal"
+
+    lps = Matrix{T}(undef, N, M)
+
+    @inbounds for k in eachindex(idxs)
+        p = ps[k]
+        ids = idxs[k]
+        K = length(p)
+        lp = Vector{T}(undef, K)
+
+        j = 1
+        for logp in eachrow(logps)
+            m = -Inf   # m <- the maximum of log(p(cs[i], x)) + log(pri[i])
+            for i in eachindex(p)
+                pi = p[i]
+                if pi > 0.0
+                    # lp[i] <- log(p(cs[i], x)) + log(pri[i])
+                    lp_i = logp[ids[i]] + log(pi)
+                    lp[i] = lp_i
+                    if lp_i > m
+                        m = lp_i
+                    end
+                end
+            end
+            v = 0.0
+            for i = 1:K
+                if p[i] > 0.0
+                    v += exp(lp[i] - m)
+                end
+                lp[i] = 0
+            end
+            lps[j, k] = m + log(v)
+            j+=1
+        end
+    end
+    return lps
+end

@@ -21,16 +21,22 @@ refinedmdl(LC::Vector{MultivariateDistribution}, MC::ClusterComplex.MahalonobisC
 Calculate a refined MDL value for the model class `LC` w.r.t. to the model class 'MC'
 for all points of `X`. Returns tuple of MDL, likelihood, and complexity values.
 """
-function refinedmdl(LC::Vector{<:MultivariateDistribution},
-                    MS::Vector{<:MultivariateDistribution},
-                    X::AbstractMatrix)
-    LKH = min.((-logpdf(p, X) for p in LC)...) |> sum
-    Rₘₐₓ = sum(regretmax(P, MS, X) for P in LC)
-    return LKH + Rₘₐₓ, LKH, Rₘₐₓ
+function refinedmdl(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    cs = counts(mcr)
+    ps = map(i->cs[i]./sum(cs[i]), mrg)
+    logpms = mixlogpdf(logps, ps, mrg)
+    return _refinedmdl(logpms)
 end
 
-refinedmdl(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix) =
-    refinedmdl(modelclass(mcr, mrg), models(mcr), X)
+function _refinedmdl(logpds::Matrix{T}) where {T <: AbstractFloat}
+    n,k = size(logpds)
+    minll = minimum(-logpds, dims=2)
+    NLL = minll |> sum
+    Rₘₐₓ = maximum(-logpds .- minll, dims=1) |> maximum # REG_max(p, M)
+    return NLL + Rₘₐₓ, NLL, Rₘₐₓ
+end
+
 
 """
     nml(LC::Vector{MultivariateDistribution}, MC::ClusterComplex.MahalonobisClusteringResult, X::AbstractMatrix) -> (Float64, Float64, Float64)
@@ -39,55 +45,43 @@ Calculate a normalized message length for the model class `LC` w.r.t. to the mod
 for all points of `X`. Returns tuple of MDL, likelihood, and complexity values.
 """
 function nml(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
-    d, n = size(X)
-    LC = modelclass(mcr, mrg)
-    logps = (-logpdf(p, X) for p in LC)
-    LL = min.(logps...) |> sum
-    COMP = max.(map(v->exp.(-v),logps)...) |> sum |> log
-    return LL+n*COMP, LL, COMP
+    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    cs = counts(mcr)
+    ps = map(i->cs[i]./sum(cs[i]), mrg)
+    logpms = mixlogpdf(logps, ps, mrg)
+    return _nml(logpms)
 end
+
+function _nml(logpds::Matrix{T}) where {T <: AbstractFloat}
+    n,k = size(logpds)
+    minll = minimum(-logpds, dims=2)
+    NLL = minll |> sum
+    COMP = exp.(-minll) |> sum |> log
+    return NLL + n*COMP, NLL, COMP
+end
+
 
 """
     mdldiff(P′::AbstractMixtureModel, MC::Vector{MultivariateDistribution}, X::AbstractMatrix) -> Float64
 
 Returns MDL difference between original and merged P′ = {Pᵢ ∪ Pⱼ} clusterings.
 """
-function mdldiff(P′::AbstractMixtureModel,
-                 MCL::Vector{<:MultivariateDistribution},
-                 X::AbstractMatrix)
-    n = size(X, 2)
-    Pᵢ = components(P′)[1]
-    Pⱼ = components(P′)[2]
-    LL = mapslices(x->max(-logpdf(Pᵢ,x), -logpdf(Pⱼ,x)), X, dims=1) |> sum
-    R′Rᵢ = mapslices(x->logpdf(P′,x)-logpdf(Pᵢ,x), X, dims=1) |> maximum
-    Rⱼ = PLMC.regretmax(Pⱼ, MCL, X)
-    # println("LL[$LL] + max(R′-Rᵢ)[$(R′Rᵢ)] + Rⱼ[$(Rⱼ)] = $(LL + R′Rᵢ + Rⱼ)")
-    return LL + R′Rᵢ + Rⱼ
+function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    cs = counts(mcr)
+    ps = map(i->cs[i]./sum(cs[i]), mrg)
+    logpms = mixlogpdf(logps, ps, mrg)
+    mrgidxs = map(m->findall(i-> i ∈ m, assignments(mcr)), mrg)
+    return _mdldiff(logpms, logps, mrg, mrgidxs)
 end
 
-function mdldiff(P′::Vector{<:MultivariateDistribution}, sz::Vector{Int},
-                 X::AbstractMatrix)
+function _mdldiff(logP′::AbstractMatrix{T}, logPs::AbstractMatrix{T},
+                  mrg::Vector{Vector{Int}}, mrgidxs::Vector{Vector{Int}}) where {T <: AbstractFloat}
+    sz = map(length, mrgidxs)
     n = sum(sz)
-    logPᵢ = logpdf(P′[1],X)
-    logPⱼ = logpdf(P′[2],X)
-    LL = sum(max(pᵢ, pⱼ) for (pᵢ, pⱼ) in zip(logPᵢ, logPⱼ))
-    s1 = maximum.(eachcol([minimum(map(p-> -logpdf(p, x), components(p))) for p in P′, x in eachcol(X)]))
-    # s1 = maximum(min.((-logpdf(p, X) for p in LC)...))
-    s2 = -log.(sz[2]./exp.(logPᵢ) .+ sz[1]./exp.(logPⱼ))
-    # println("LL[$LL] + max[$(maximum(s1 .- s2))]")
-    return LL - log(n) + maximum(s1 .- s2)
+    allidxs = vcat(mrgidxs...)
+    NLL = maximum(view(logP′,allidxs,:), dims=2) |> sum
+    s1 = max.(map(i-> minimum(view(-logPs,allidxs,i), dims=2), mrg)...)
+    s2 = -log.(sz[2]./exp.(view(logP′,allidxs,1)) .+ sz[1]./exp.(view(logP′,allidxs,2)))
+    return NLL - log(n) + maximum(s1 .- s2)
 end
-
-function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult,
-                 X::AbstractMatrix; kwargs...)
-    assign = assignments(mcr)
-    mrgidxs = map(m->findall(i-> i ∈ m, assign), mrg)
-    idxs = vcat(mrgidxs...)
-    mdldiff(modelclass(mcr, mrg), map(length, mrgidxs), view(X ,:,idxs))
-end
-
-# function mdldiff2(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
-#     mrgidxs = vcat(mrg...)
-#     idxs = findall(i-> i ∈ mrgidxs, assignments(mcr))
-#     mdldiff(first(modelclass(mcr, [mrgidxs])), models(mcr), view(X ,:,idxs))
-# end
