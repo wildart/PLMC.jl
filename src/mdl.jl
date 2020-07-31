@@ -71,25 +71,27 @@ function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::Abstra
     return mdldiff(mrg, logps, assignments(mcr); kwargs...)
 end
 
-function mdldiff(mrg::Vector{Vector{Int}}, logps::AbstractMatrix, assign::Vector{Int}; kwargs...)
-    n = size(logps,1)
+function mdldiff(mrg::Vector{Vector{Int}}, logps::AbstractMatrix{T},
+                 assign::Vector{Int}; kwargs...) where {T <: AbstractFloat}
+    n = size(logps,2)
     cs = zeros(Int, n)
     for i in assign
         cs[i] += 1
     end
+    sz = map(i->sum(cs[i]), mrg)
     ps = map(i->cs[i]./sum(cs[i]), mrg)
-    logpms = mixlogpdf(logps, ps, mrg)
-    mrgidxs = map(m->findall(i-> i ∈ m, assign), mrg)
-    return _mdldiff(logpms, logps, mrg, mrgidxs)
+    mrgidxs = vcat((findall(i-> i ∈ m, assign) for m in mrg)...)
+    vlogps = view(logps, mrgidxs, :)
+    logpms = mixlogpdf(vlogps, ps, mrg)
+    return _mdldiff(logpms, vlogps, mrg, sz)
 end
 
 function _mdldiff(logP′::AbstractMatrix{T}, logPs::AbstractMatrix{T},
-                  mrg::Vector{Vector{Int}}, mrgidxs::Vector{Vector{Int}}) where {T <: AbstractFloat}
-    sz = map(length, mrgidxs)
+                  mrg::Vector{Vector{Int}}, sz::Vector{Int}) where {T <: AbstractFloat}
     n = sum(sz)
-    allidxs = vcat(mrgidxs...)
-    NLL = maximum(view(logP′,allidxs,:), dims=2) |> sum
-    s1 = max.(map(i-> minimum(view(-logPs,allidxs,i), dims=2), mrg)...)
-    s2 = -log.(sz[2]./exp.(view(logP′,allidxs,1)) .+ sz[1]./exp.(view(logP′,allidxs,2)))
-    return NLL + (maximum(s1 .- s2) - log(n))*n # normalize cost
+    NLL = maximum(logP′, dims=2) |> sum
+    pv = exp.(logP′)
+    s1 = max.((minimum(view(-logPs,:,i), dims=2) for i in mrg)...)
+    s2 = -log.(sz[2]./view(pv,:,1) .+ sz[1]./view(pv,:,2))
+    return NLL + (maximum(s1 .- s2) - log(n))*n  # normalize cost
 end

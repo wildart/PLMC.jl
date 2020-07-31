@@ -64,7 +64,7 @@ function findlocalminrev(J)
     return idx
 end
 
-function mixlogpdf(logps::Matrix{T}, ps::Vector{Vector{T}}, idxs::Vector{Vector{Int}}) where {T <: AbstractFloat}
+function mixlogpdf(logps::AbstractMatrix{T}, ps::Vector{Vector{T}}, idxs::Vector{Vector{Int}}) where {T <: AbstractFloat}
     # using the formula below for numerical stability
     #
     # logpdf(d, x) = log(sum_i pri[i] * pdf(cs[i], x))
