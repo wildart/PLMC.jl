@@ -173,7 +173,7 @@ end
 function mergecost(nodes::Vector{Vector{Int}}, measure::Function,
                    mcr::ModelClusteringResult, X::AbstractMatrix, β::Int;
                    kwargs...)
-    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    logps = hcat((logpdf(p, X) for p in models(mcr))...)
     assign = assignments(mcr)
     return mergecost(nodes, measure, logps, assign, β; kwargs...)
 end
@@ -201,7 +201,7 @@ function agglomerate(measure::Function, mcr::ModelClusteringResult,
     β = get(args, :β, 1)
     βsize = get(args, :βsize, β)
 
-    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    logps = hcat((logpdf(p, X) for p in models(mcr))...)
     assign = assignments(mcr)
 
     # initialize beam storage

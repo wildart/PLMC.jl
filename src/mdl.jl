@@ -22,14 +22,14 @@ Calculate a refined MDL value for the model class `LC` w.r.t. to the model class
 for all points of `X`. Returns tuple of MDL, likelihood, and complexity values.
 """
 function refinedmdl(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
-    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    logps = hcat((logpdf(p, X) for p in models(mcr))...)
     cs = counts(mcr)
     ps = map(i->cs[i]./sum(cs[i]), mrg)
     logpms = mixlogpdf(logps, ps, mrg)
     return _refinedmdl(logpms)
 end
 
-function _refinedmdl(logpds::Matrix{T}) where {T <: AbstractFloat}
+function _refinedmdl(logpds::AbstractMatrix{T}) where {T <: AbstractFloat}
     n,k = size(logpds)
     minll = minimum(-logpds, dims=2)
     NLL = minll |> sum
@@ -45,7 +45,7 @@ Calculate a normalized message length for the model class `LC` w.r.t. to the mod
 for all points of `X`. Returns tuple of MDL, likelihood, and complexity values.
 """
 function nml(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
-    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    logps = hcat((logpdf(p, X) for p in models(mcr))...)
     cs = counts(mcr)
     ps = map(i->cs[i]./sum(cs[i]), mrg)
     logpms = mixlogpdf(logps, ps, mrg)
@@ -67,7 +67,7 @@ end
 Returns MDL difference between original and merged P′ = {Pᵢ ∪ Pⱼ} clusterings.
 """
 function mdldiff(mrg::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix; kwargs...)
-    logps = hcat((PLMC.logpdf(p, X) for p in models(mcr))...)
+    logps = hcat((logpdf(p, X) for p in models(mcr))...)
     return mdldiff(mrg, logps, assignments(mcr); kwargs...)
 end
 
