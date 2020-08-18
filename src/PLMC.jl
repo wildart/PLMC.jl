@@ -258,9 +258,12 @@ function plmc(agg::Agglomeration, mcr::ModelClusteringResult,
     args = Dict(kwargs...)
     scorefunc = get(args, :score, refinedmdl)
     findscore = get(args, :find, findglobalmin)
+    mdlidx = get(args, :aggidx, 0)
 
-    MDL, _ = testmerges(scorefunc, agg.clusters, mcr, X)
-    mdlidx = findscore(MDL)
+    if mdlidx == 0
+        MDL, _ = testmerges(scorefunc, agg.clusters, mcr, X)
+        mdlidx = findscore(MDL)
+    end
 
     ϵ = Inf
     scplx = SimplicialComplex()
