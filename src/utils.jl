@@ -1,6 +1,5 @@
-function findglobalmin(J, tol=1e-4; debug=false)
+function markminima(J, tol=1e-4; debug=false)
     N = length(J)
-    N == 1 && return 1
     M = zeros(Bool,N)
     P = zeros(N)
     # find all minima
@@ -16,9 +15,17 @@ function findglobalmin(J, tol=1e-4; debug=false)
         prev=curr
         P[i] = prev
     end
-     M[end] = J[end] < J[end-1]
+    M[end] = J[end] < J[end-1]
     debug && println(M)
-    # debug && println(P[M])
+    debug && println(P[M])
+    return (M, P)
+end
+
+function findglobalmin(J, tol=1e-4; debug=false)
+    N = length(J)
+    N == 1 && return 1
+    # find all minima
+    M, P = markminima(J; debug=false)
     # zero minima below tolerance (skip first & last)
     minima, MI = if sum(M[2:end-1]) > 0
         Mnew = copy(M)
@@ -52,19 +59,38 @@ end
 function findlocalminrev(J)
     c = length(J)
     Jmax = Inf
-    idx = c
+    midx = c
     for i in c:-1:1
         if J[c] < Jmax
             Jmax = J[c]
         else
             break
         end
-        idx = i
+        midx = i
     end
     return idx
 end
 
-function mixlogpdf(logps::AbstractMatrix{T}, ps::Vector{Vector{T}}, idxs::Vector{Vector{Int}}) where {T <: AbstractFloat}
+function findfirstminimum(J; debug=false)
+    N = length(J)
+    N == 1 && return 1
+    # find all minima
+    M, P = markminima(J; debug=debug)
+    m, midx = Inf, 0
+    for i in findall(M)
+        J[i] |> println
+        if J[i] < m
+            m = J[i]
+            midx = i
+        else
+            break
+        end
+    end
+    return midx
+end
+
+function mixlogpdf(logps::AbstractMatrix{T}, ps::Vector{Vector{T}},
+                   idxs::Vector{Vector{Int}}) where {T <: AbstractFloat}
     # using the formula below for numerical stability
     #
     # logpdf(d, x) = log(sum_i pri[i] * pdf(cs[i], x))
@@ -115,3 +141,11 @@ function mixlogpdf(logps::AbstractMatrix{T}, ps::Vector{Vector{T}}, idxs::Vector
     end
     return lps
 end
+
+function score(fn, cl::C, data::AbstractMatrix) where {C <: ClusteringResult}
+    clusters = [[i] for i in 1:nclusters(cl)]
+    models = [model(X, points(cl, i)) for i in 1:nclusters(cl)]
+    mcr = ModelClusteringResult(models, assignments(cl))
+    fn(clusters, mcr, data)
+end
+score(fn, cl::PLMClusteringResult, data::AbstractMatrix) = fn(cl.clusters, cl.models, data)
