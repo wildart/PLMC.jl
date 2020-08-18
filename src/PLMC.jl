@@ -260,9 +260,10 @@ function plmc(agg::Agglomeration, mcr::ModelClusteringResult,
     findscore = get(args, :find, findglobalmin)
     mdlidx = get(args, :aggidx, 0)
 
+    scores = nothing
     if mdlidx == 0
-        MDL, _ = testmerges(scorefunc, agg.clusters, mcr, X)
-        mdlidx = findscore(MDL)
+        scores, _ = testmerges(scorefunc, agg.clusters, mcr, X)
+        mdlidx = findscore(scores)
     end
 
     ϵ = Inf
@@ -271,7 +272,7 @@ function plmc(agg::Agglomeration, mcr::ModelClusteringResult,
         ϵ = agg.costs[mdlidx]
         scplx = complex(filtration, ϵ)
     end
-    return PLMClusteringResult(mcr, agg.clusters[mdlidx], scplx, ϵ)
+    return PLMClusteringResult(mcr, agg.clusters[mdlidx], scplx, ϵ), agg, scores
 end
 
 """

@@ -143,9 +143,10 @@ function mixlogpdf(logps::AbstractMatrix{T}, ps::Vector{Vector{T}},
 end
 
 function score(fn, cl::C, data::AbstractMatrix) where {C <: ClusteringResult}
+    assign = assignments(cl)
     clusters = [[i] for i in 1:nclusters(cl)]
-    models = [model(X, points(cl, i)) for i in 1:nclusters(cl)]
-    mcr = ModelClusteringResult(models, assignments(cl))
+    models = [model(data, findall(i .∈  assign)) for i in 1:nclusters(cl)]
+    mcr = ModelClusteringResult(models, assign)
     fn(clusters, mcr, data)
 end
 score(fn, cl::PLMClusteringResult, data::AbstractMatrix) = fn(cl.clusters, cl.models, data)
