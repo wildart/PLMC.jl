@@ -73,7 +73,8 @@ function nll(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractM
     ps = map(i->cs[i]./sum(cs[i]), meta)
     logpms = mixlogpdf(logps, ps, meta)
     minll = minimum(-logpms, dims=2)
-    return minll |> sum
+    NLL = minll |> sum
+    return NLL, NLL, 0
 end
 
 
