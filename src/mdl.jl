@@ -44,15 +44,15 @@ end
 Calculate a normalized message length for the metaclustering `meta` w.r.t. to the model class 'mcr'
 for all points of `X`. Returns tuple of NML, likelihood, and complexity values.
 """
-function nml(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+function nml(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix{T}) where {T <: AbstractFloat}
     logps = hcat((logpdf(p, X) for p in models(mcr))...)
     cs = counts(mcr)
-    ps = map(i->cs[i]./sum(cs[i]), meta)
+    ps = map(i->cs[i]./T(sum(cs[i])), meta)
     logpms = mixlogpdf(logps, ps, meta)
     return _nml(logpms)
 end
 
-function _nml(logpds::Matrix{T}) where {T <: AbstractFloat}
+function _nml(logpds::AbstractMatrix)
     n,k = size(logpds)
     minll = minimum(-logpds, dims=2)
     NLL = minll |> sum
