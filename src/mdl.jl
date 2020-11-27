@@ -16,15 +16,15 @@ for all points of `X`.
 regretmax(P, MC, X) = maximum(regret(P,MC,X))
 
 """
-    refinedmdl(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix) -> (Float64, Float64, Float64)
+    refinedmdl(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix{T}) -> (T, T, T)
 
 Calculate a refined MDL value for the metaclustering `meta` w.r.t. to the model class 'mcr'
 for all points of `X`. Returns tuple of MDL, likelihood, and complexity values.
 """
-function refinedmdl(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+function refinedmdl(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix{T}) where {T <: AbstractFloat}
     logps = hcat((logpdf(p, X) for p in models(mcr))...)
     cs = counts(mcr)
-    ps = map(i->cs[i]./sum(cs[i]), meta)
+    ps = map(i->cs[i]./T(sum(cs[i])), meta)
     logpms = mixlogpdf(logps, ps, meta)
     return _refinedmdl(logpms)
 end
@@ -39,7 +39,7 @@ end
 
 
 """
-    nml(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix) -> (Float64, Float64, Float64)
+    nml(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix{T}) -> (T, T, T)
 
 Calculate a normalized message length for the metaclustering `meta` w.r.t. to the model class 'mcr'
 for all points of `X`. Returns tuple of NML, likelihood, and complexity values.
@@ -62,19 +62,19 @@ end
 
 
 """
-    nll(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix) -> Float64
+    nll(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix{T}) -> (T, T, T)
 
 Calculate a negative log-likelyhood for the metaclustering `meta` w.r.t. to the model class 'mcr'
 for all points of `X`.
 """
-function nll(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix)
+function nll(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractMatrix{T}) where {T <: AbstractFloat}
     logps = hcat((logpdf(p, X) for p in models(mcr))...)
     cs = counts(mcr)
-    ps = map(i->cs[i]./sum(cs[i]), meta)
+    ps = map(i->cs[i]./T(sum(cs[i])), meta)
     logpms = mixlogpdf(logps, ps, meta)
     minll = minimum(-logpms, dims=2)
     NLL = minll |> sum
-    return NLL, NLL, 0
+    return NLL, NLL, zero(T)
 end
 
 

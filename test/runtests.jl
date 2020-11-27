@@ -44,3 +44,15 @@ end
     @test assignments(plmcs) == vcat(fill(1, 20), fill(2, 10))
     @test models(plmcs)[1] == d1
 end
+
+@testset "IT Measures" begin
+    @testset "Result Types" for T in [Float64, Float32],
+                                itm in [PLMC.refinedmdl, PLMC.nml, PLMC.nll]
+        mu = [0, T(0)]
+        d1, l1 = MvNormal(mu.+5, Diagonal(mu.+1)), fill(1,10)
+        d2, l2 = MvNormal(mu.+5, Diagonal((mu.+1)/2)), fill(2,10)
+        mcr = ModelClusteringResult([d1,d2], vcat(l1,l2))
+        X = [rand(d1, 10) rand(d2, 10)]
+        @test itm([[1,2]], mcr, X) |> eltype == T
+    end
+end
