@@ -53,10 +53,10 @@ function nml(meta::Vector{Vector{Int}}, mcr::ModelClusteringResult, X::AbstractM
 end
 
 function _nml(logpds::AbstractMatrix)
-    n,k = size(logpds)
+    n = size(logpds,1)
     minll = minimum(-logpds, dims=2)
-    NLL = minll |> sum
-    COMP = exp.(-minll) |> sum |> log
+    NLL = sum(minll)
+    COMP = logsumexp(-minll)
     return NLL + n*COMP, NLL, COMP
 end
 

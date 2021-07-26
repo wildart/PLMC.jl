@@ -6,7 +6,8 @@ using Clustering
 using ClusterComplex
 using Random
 using ComputationalHomology
-using Optim: optimize
+using LogExpFunctions: logsumexp
+using Requires
 
 import Clustering: assignments, counts, nclusters
 import ClusterComplex: models
@@ -302,6 +303,10 @@ function plmc(::Type{InformationBottleneck}, X::AbstractMatrix, flt::Filtration,
               mcr::ModelClusteringResult; kwargs...)
     agg = agglomerate(ibdiff, mcr, X; kwargs...)
     plmc(agg, mcr, X; kwargs...)
+end
+
+function __init__()
+    @require Optim="429524aa-4258-5aef-a3af-852621145aeb" @eval using Optim: optimize
 end
 
 end
